@@ -65,8 +65,8 @@ public final class TeleOpDrive extends LinearOpMode {
             Pose2d pose = drive.localizer.getPose();
 
             Vector2d translation = new Vector2d(
-                    -gamepad1.left_stick_y,
-                    -gamepad1.left_stick_x);
+                    gamepad1.left_stick_y,
+                    gamepad1.left_stick_x);
             if (fieldCentric) {
                 translation = pose.heading.inverse().times(translation);
             }
