@@ -46,11 +46,13 @@ public final class TwoDeadWheelLocalizer implements Localizer {
     private Pose2d pose;
 
     public TwoDeadWheelLocalizer(HardwareMap hardwareMap, IMU imu, double inPerTick, Pose2d initialPose) {
-        // TODO: make sure your config has **motors** with these names (or change them)
-        //   the encoders should be plugged into the slot matching the named motor
-        //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        par = new OverflowEncoder(new RawEncoder(hardwareMap.get(DcMotorEx.class, "par")));
-        perp = new OverflowEncoder(new RawEncoder(hardwareMap.get(DcMotorEx.class, "perp")));
+        // The dead-wheel encoder cables share the encoder inputs belonging to
+        // these configured drivetrain motor ports. Motor power remains under
+        // MecanumDrive; this localizer reads only each port's encoder signal.
+        par = new OverflowEncoder(new RawEncoder(getEncoderPort(
+                hardwareMap, "rightBack")));
+        perp = new OverflowEncoder(new RawEncoder(getEncoderPort(
+                hardwareMap, "leftBack")));
 
         // TODO: reverse encoder directions if needed
         //   par.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -64,6 +66,21 @@ public final class TwoDeadWheelLocalizer implements Localizer {
         pose = initialPose;
     }
 
+    private static DcMotorEx getEncoderPort(HardwareMap hardwareMap, String... acceptedNames) {
+        for (String name : acceptedNames) {
+            DcMotorEx device = hardwareMap.tryGet(DcMotorEx.class, name);
+            if (device != null) {
+                return device;
+            }
+        }
+
+        throw new IllegalArgumentException(
+                "Dead-wheel encoder not found. Expected one of "
+                        + java.util.Arrays.toString(acceptedNames)
+                        + " as a configured motor-port device. Configured DcMotorEx names: "
+                        + hardwareMap.getAllNames(DcMotorEx.class));
+    }
+
     @Override
     public void setPose(Pose2d pose) {
         this.pose = pose;
@@ -72,6 +89,20 @@ public final class TwoDeadWheelLocalizer implements Localizer {
     @Override
     public Pose2d getPose() {
         return pose;
+    }
+
+    /**
+     * Resets the IMU yaw while preserving the estimated field position. The
+     * heading sample is also re-baselined to prevent a discontinuous pose jump.
+     */
+    public void resetHeading() {
+        imu.resetYaw();
+
+        YawPitchRollAngles angles = imu.getRobotYawPitchRollAngles();
+        lastHeading = Rotation2d.exp(angles.getYaw(AngleUnit.RADIANS));
+        lastRawHeadingVel = 0.0;
+        headingVelOffset = 0.0;
+        pose = new Pose2d(pose.position, Rotation2d.exp(0.0));
     }
 
     @Override

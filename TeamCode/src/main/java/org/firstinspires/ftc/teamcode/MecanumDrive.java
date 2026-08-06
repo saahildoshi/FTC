@@ -58,14 +58,21 @@ public final class MecanumDrive {
         // TODO: fill in these values based on
         //   see https://ftc-docs.firstinspires.org/en/latest/programming_resources/imu/imu.html?highlight=imu#physical-hub-mounting
         public RevHubOrientationOnRobot.LogoFacingDirection logoFacingDirection =
-                RevHubOrientationOnRobot.LogoFacingDirection.UP;
+                RevHubOrientationOnRobot.LogoFacingDirection.LEFT;
         public RevHubOrientationOnRobot.UsbFacingDirection usbFacingDirection =
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
+                RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
         // drive model parameters
-        public double inPerTick = 1;
+        public double ticksPerRev = 355.6;
+        public double maxMotorRpm = 472.4;
+        public double wheelRadius = 1.88976; // 48 mm, in inches
+        public double gearRatio = 1.0; // wheel revs per gearbox output rev
+        public double trackWidth = 14.22; // wheel center-to-center, in inches
+        public double wheelBase = 12.66; // wheel center-to-center, in inches
+
+        public double inPerTick = 2.0 * Math.PI * wheelRadius * gearRatio / ticksPerRev;
         public double lateralInPerTick = inPerTick;
-        public double trackWidthTicks = 0;
+        public double trackWidthTicks = trackWidth / inPerTick;
 
         // feedforward parameters (in tick units)
         public double kS = 0;
@@ -235,8 +242,8 @@ public final class MecanumDrive {
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        // TODO: reverse motor directions if needed
-        //   leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        // leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        // leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         // TODO: make sure your config has an IMU with this name (can be BNO or BHI)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
@@ -245,9 +252,25 @@ public final class MecanumDrive {
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
-        localizer = new DriveLocalizer(pose);
+        localizer = new TwoDeadWheelLocalizer(
+                hardwareMap, lazyImu.get(), PARAMS.inPerTick, pose);
 
         FlightRecorder.write("MECANUM_PARAMS", PARAMS);
+    }
+
+    /**
+     * Zeros the Hub IMU yaw and synchronizes the two-dead-wheel localizer so the
+     * next localization update does not interpret the reset as robot rotation.
+     */
+    public void resetHeading() {
+        if (localizer instanceof TwoDeadWheelLocalizer) {
+            ((TwoDeadWheelLocalizer) localizer).resetHeading();
+            return;
+        }
+
+        Pose2d currentPose = localizer.getPose();
+        lazyImu.get().resetYaw();
+        localizer.setPose(new Pose2d(currentPose.position, Rotation2d.exp(0.0)));
     }
 
     public void setDrivePowers(PoseVelocity2d powers) {
