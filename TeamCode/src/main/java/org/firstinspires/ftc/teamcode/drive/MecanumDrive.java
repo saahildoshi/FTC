@@ -65,13 +65,6 @@ public final class MecanumDrive {
                 RevHubOrientationOnRobot.UsbFacingDirection.UP;
 
         // drive model parameters
-        public double ticksPerRev = 355.6;
-        public double maxMotorRpm = 472.4;
-        public double wheelRadius = 1.88976; // 48 mm, in inches
-        public double gearRatio = 1.0; // wheel revs per gearbox output rev
-        public double trackWidth = 14.22; // wheel center-to-center, in inches
-        public double wheelBase = 12.66; // wheel center-to-center, in inches
-
         public double inPerTick = 0.00195823799806;
         public double lateralInPerTick = 0.001506869625201658;
         public double trackWidthTicks = 7052.723587505585;
@@ -190,23 +183,39 @@ public final class MecanumDrive {
                 return new PoseVelocity2d(new Vector2d(0.0, 0.0), 0.0);
             }
 
+            double leftFrontVelocity = leftFrontPosVel.velocity != null
+                    ? leftFrontPosVel.velocity
+                    : 0.0;
+
+            double leftBackVelocity = leftBackPosVel.velocity != null
+                    ? leftBackPosVel.velocity
+                    : 0.0;
+
+            double rightBackVelocity = rightBackPosVel.velocity != null
+                    ? rightBackPosVel.velocity
+                    : 0.0;
+
+            double rightFrontVelocity = rightFrontPosVel.velocity != null
+                    ? rightFrontPosVel.velocity
+                    : 0.0;
+
             double headingDelta = heading.minus(lastHeading);
             Twist2dDual<Time> twist = kinematics.forward(new MecanumKinematics.WheelIncrements<>(
                     new DualNum<Time>(new double[]{
                             (leftFrontPosVel.position - lastLeftFrontPos),
-                            leftFrontPosVel.velocity,
+                            leftFrontVelocity,
                     }).times(PARAMS.inPerTick),
                     new DualNum<Time>(new double[]{
                             (leftBackPosVel.position - lastLeftBackPos),
-                            leftBackPosVel.velocity,
+                            leftBackVelocity,
                     }).times(PARAMS.inPerTick),
                     new DualNum<Time>(new double[]{
                             (rightBackPosVel.position - lastRightBackPos),
-                            rightBackPosVel.velocity,
+                            rightBackVelocity,
                     }).times(PARAMS.inPerTick),
                     new DualNum<Time>(new double[]{
                             (rightFrontPosVel.position - lastRightFrontPos),
-                            rightFrontPosVel.velocity,
+                            rightFrontVelocity,
                     }).times(PARAMS.inPerTick)
             ));
 
