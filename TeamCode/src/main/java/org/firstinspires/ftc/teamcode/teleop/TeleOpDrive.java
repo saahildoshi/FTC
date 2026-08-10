@@ -17,7 +17,7 @@ public final class TeleOpDrive extends LinearOpMode {
             new Vector2d(0.0, 0.0), Rotation2d.exp(0.0));
 
     @Override
-    public void runOpMode() throws InterruptedException {
+    public void runOpMode() { // throws InterruptedException << add this if error
 
         boolean slowMode = false;
         boolean previousA = false;
@@ -43,7 +43,7 @@ public final class TeleOpDrive extends LinearOpMode {
         double previousHeadingError = 0.0;
         long previousHeadingTimeNs = System.nanoTime();
 
-        long previousLoopTimeNs = System.nanoTime();
+        long previousLoopTimeNs;
         double filteredLoopHz = 0.0;
 
         telemetry.addLine("Drivetrain initialized");
