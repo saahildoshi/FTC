@@ -73,10 +73,11 @@ public final class TuningOpModes {
 
     private static PinpointView makePinpointView(PinpointLocalizer pl) {
         return new PinpointView() {
-            @Nullable
             @Override
             public DcMotorSimple.Direction getParDirection() {
-                return null;
+                return parDirection == GoBildaPinpointDriver.EncoderDirection.FORWARD
+                        ? DcMotorSimple.Direction.FORWARD
+                        : DcMotorSimple.Direction.REVERSE;
             }
 
             GoBildaPinpointDriver.EncoderDirection parDirection = pl.initialParDirection;
