@@ -23,7 +23,7 @@ public final class SquareTestAuto extends LinearOpMode {
             new ProfileAccelConstraint(-20.0, 20.0);
 
     @Override
-    public void runOpMode() throws InterruptedException {
+    public void runOpMode() {
         MecanumDrive drive = new MecanumDrive(hardwareMap, START_POSE);
 
         Action square = drive.actionBuilder(START_POSE)
