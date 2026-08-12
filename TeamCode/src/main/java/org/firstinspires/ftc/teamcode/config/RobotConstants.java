@@ -13,19 +13,25 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
  * - HardwareNames must match the names entered in the FTC Robot Controller app.
  * - IMU orientation describes how the Control Hub is physically mounted.
  * - TeleOp values change how the robot feels to the driver.
- * - OptionalMechanisms contains proposed names only; those devices do not yet
- *   exist in the verified repository and are therefore NOT active.
+ * - Lift and Claw contain the currently active mechanism settings.
+ * - OptionalMechanisms still preserves other mechanism choices for later.
  */
 public final class RobotConstants {
     private RobotConstants() { }
 
-    /** Verified drivetrain hardware from the existing robot code. */
+    /** Verified drivetrain hardware plus the active lift and claw. */
     public static final class HardwareNames {
         public static final String LEFT_FRONT = "leftFront";
         public static final String LEFT_BACK = "leftBack";
         public static final String RIGHT_BACK = "rightBack";
         public static final String RIGHT_FRONT = "rightFront";
         public static final String IMU = "imu";
+
+        // Single active lift motor selected from the optional two-motor design.
+        public static final String LIFT = "leftLift";
+
+        // Active positional servo used to open and close the claw.
+        public static final String CLAW = "claw";
 
         private HardwareNames() { }
     }
@@ -63,10 +69,52 @@ public final class RobotConstants {
     }
 
     /**
+     * ACTIVE SINGLE-MOTOR LIFT SETTINGS
+     *
+     * Encoder positions are still starting values until the team measures the
+     * real lift. Positive encoder ticks are assumed to move the lift upward.
+     */
+    public static final class Lift {
+        // Bottom/base position of the lift.
+        public static final int HOME_TICKS = 0;
+
+        // Example intermediate heights for future TeleOp presets.
+        public static final int LOW_TICKS = 500;
+        public static final int MID_TICKS = 1100;
+
+        // Highest position used by the sample autonomous.
+        public static final int HIGH_TICKS = 1800;
+
+        // Software ceiling intended to keep the motor from commanding past the mechanism.
+        public static final int MAX_TICKS = 2100;
+
+        // Motor output used by RUN_TO_POSITION.
+        public static final double MOVE_POWER = 0.75;
+
+        // An autonomous lift Action ends when the encoder is this close to target.
+        public static final int TOLERANCE_TICKS = 25;
+
+        private Lift() { }
+    }
+
+    /**
+     * ACTIVE CLAW SERVO SETTINGS
+     *
+     * FTC positional servos use the range 0.0 to 1.0. These positions are still
+     * starting values and must be checked against the physical linkage.
+     */
+    public static final class Claw {
+        public static final double OPEN_POSITION = 0.70;
+        public static final double CLOSED_POSITION = 0.30;
+
+        private Claw() { }
+    }
+
+    /**
      * Proposed mechanism names only.
      *
-     * They are intentionally isolated from active HardwareNames so a student
-     * cannot accidentally assume the robot already has these devices.
+     * This section is intentionally preserved so the team can still choose a
+     * second lift motor, arm, intake, or CR-servo intake later.
      */
     public static final class OptionalMechanisms {
         public static final String LEFT_LIFT = "leftLift";
