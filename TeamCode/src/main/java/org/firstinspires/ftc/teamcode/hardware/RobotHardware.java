@@ -4,6 +4,16 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.acmerobotics.roadrunner.ftc.Encoder;
+import com.acmerobotics.roadrunner.ftc.RawEncoder;
+
+import com.acmerobotics.roadrunner.ftc.LazyHardwareMapImu;
+import com.acmerobotics.roadrunner.ftc.LazyImu;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
@@ -35,6 +45,12 @@ public final class RobotHardware {
     public DcMotorEx rightFront;
     public IMU imu;
 
+    public LazyImu lazyImu;
+
+    public Encoder par;
+    public Encoder perp;
+    public VoltageSensor voltageSensor;
+
     // ----------------------------------------------------------------------
     // ACTIVE MECHANISM HARDWARE
     // ----------------------------------------------------------------------
@@ -58,19 +74,62 @@ public final class RobotHardware {
      */
     public void initVerifiedHardware(HardwareMap hardwareMap) {
         // Four mecanum drive motors used by the existing Road Runner drivetrain.
-        leftFront = hardwareMap.get(DcMotorEx.class, RobotConstants.HardwareNames.LEFT_FRONT);
-        leftBack = hardwareMap.get(DcMotorEx.class, RobotConstants.HardwareNames.LEFT_BACK);
-        rightBack = hardwareMap.get(DcMotorEx.class, RobotConstants.HardwareNames.RIGHT_BACK);
-        rightFront = hardwareMap.get(DcMotorEx.class, RobotConstants.HardwareNames.RIGHT_FRONT);
+        leftFront = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.LEFT_FRONT);
 
-        // IMU provides robot heading for localization and field-centric driving.
-        imu = hardwareMap.get(IMU.class, RobotConstants.HardwareNames.IMU);
+        leftBack = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.LEFT_BACK);
 
-        // Active single lift motor. Its encoder will be used for height presets.
-        leftLift = hardwareMap.get(DcMotorEx.class, RobotConstants.HardwareNames.LIFT);
+        rightBack = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.RIGHT_BACK);
 
-        // Active positional servo used by the claw subsystem.
-        claw = hardwareMap.get(Servo.class, RobotConstants.HardwareNames.CLAW);
+        rightFront = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.RIGHT_FRONT);
+
+        rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        imu = hardwareMap.get(
+                IMU.class,
+                RobotConstants.HardwareNames.IMU);
+
+        lazyImu = new LazyHardwareMapImu(
+                hardwareMap,
+                RobotConstants.HardwareNames.IMU,
+                new RevHubOrientationOnRobot(
+                        RevHubOrientationOnRobot.LogoFacingDirection.LEFT,
+                        RevHubOrientationOnRobot.UsbFacingDirection.UP
+                )
+        );
+
+// Dead-wheel encoders
+        par = new OverflowEncoder(
+                new RawEncoder(rightBack));
+
+        perp = new OverflowEncoder(
+                new RawEncoder(leftBack));
+
+        //par.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        //perp.setDirection(DcMotorSimple.Direction.REVERSE);
+
+// Battery voltage
+        voltageSensor =
+                hardwareMap.voltageSensor.iterator().next();
+
+// Mechanisms
+        leftLift = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.LIFT);
+
+        claw = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.CLAW);
+
     }
 
     /**

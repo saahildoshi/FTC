@@ -63,7 +63,7 @@ public final class TeleOpDrive extends LinearOpMode {
         double currentY = 0.0;
         double currentRotation = 0.0;
 
-        final double DRIVE_ACCEL = 2.5;
+        final double DRIVE_ACCEL = 3.5;
         final double ROTATION_ACCEL = 3.0;
 
         // ---------------- Loop Timing ----------------

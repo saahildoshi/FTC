@@ -11,19 +11,16 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.Vector2dDual;
 import com.acmerobotics.roadrunner.ftc.Encoder;
 import com.acmerobotics.roadrunner.ftc.FlightRecorder;
-import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
 import com.acmerobotics.roadrunner.ftc.PositionVelocityPair;
-import com.acmerobotics.roadrunner.ftc.RawEncoder;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
+import com.qualcomm.robotcore.robot.Robot;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AngularVelocity;
 import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.Localizer;
+import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
 import org.firstinspires.ftc.teamcode.messages.TwoDeadWheelInputsMessage;
 
 @Config
@@ -47,42 +44,20 @@ public final class TwoDeadWheelLocalizer implements Localizer {
     private boolean initialized;
     private Pose2d pose;
 
-    public TwoDeadWheelLocalizer(HardwareMap hardwareMap, IMU imu, double inPerTick, Pose2d initialPose) {
-        // The dead-wheel encoder cables share the encoder inputs belonging to
-        // these configured drivetrain motor ports. Motor power remains under
-        // MecanumDrive; this localizer reads only each port's encoder signal.
-        par = new OverflowEncoder(new RawEncoder(getEncoderPort(
-                hardwareMap, "rightBack")));
-        perp = new OverflowEncoder(new RawEncoder(getEncoderPort(
-                hardwareMap, "leftBack")));
+    public TwoDeadWheelLocalizer(
+            RobotHardware robot,
+            double inPerTick,
+            Pose2d initialPose) {
 
-        // TODO: reverse encoder directions if needed
-        par.setDirection(DcMotorSimple.Direction.REVERSE);
-        perp.setDirection(DcMotorSimple.Direction.REVERSE);
-
-
-        this.imu = imu;
+        par = robot.par;
+        perp = robot.perp;
+        imu = robot.imu;
 
         this.inPerTick = inPerTick;
 
         FlightRecorder.write("TWO_DEAD_WHEEL_PARAMS", PARAMS);
 
         pose = initialPose;
-    }
-
-    private static DcMotorEx getEncoderPort(HardwareMap hardwareMap, String... acceptedNames) {
-        for (String name : acceptedNames) {
-            DcMotorEx device = hardwareMap.tryGet(DcMotorEx.class, name);
-            if (device != null) {
-                return device;
-            }
-        }
-
-        throw new IllegalArgumentException(
-                "Dead-wheel encoder not found. Expected one of "
-                        + java.util.Arrays.toString(acceptedNames)
-                        + " as a configured motor-port device. Configured DcMotorEx names: "
-                        + hardwareMap.getAllNames(DcMotorEx.class));
     }
 
     @Override
