@@ -150,7 +150,7 @@ public final class SampleMiddleFieldAuto extends LinearOpMode {
         Actions.runBlocking(
                 new SequentialAction(
                         // FIRST: execute the spline -> line -> strafe drive path.
-                        sampleDrivePath,
+
 
                         // SECOND: ParallelAction starts BOTH child Actions together.
                         // The lift begins raising toward its highest preset while
@@ -160,6 +160,7 @@ public final class SampleMiddleFieldAuto extends LinearOpMode {
                         // ParallelAction remains active until the lift also reaches
                         // its high encoder target.
                         new ParallelAction(
+                                sampleDrivePath,
                                 raiseLiftHigh,
                                 openClaw
                         ),
