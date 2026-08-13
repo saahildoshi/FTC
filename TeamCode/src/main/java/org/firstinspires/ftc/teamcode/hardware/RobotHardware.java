@@ -113,9 +113,8 @@ public final class RobotHardware {
         perp = new OverflowEncoder(
                 new RawEncoder(leftBack));
 
-        //par.setDirection(DcMotorSimple.Direction.REVERSE);
-
-        //perp.setDirection(DcMotorSimple.Direction.REVERSE);
+        par.setDirection(DcMotorSimple.Direction.REVERSE);
+        perp.setDirection(DcMotorSimple.Direction.REVERSE);
 
 // Battery voltage
         voltageSensor =
