@@ -4,14 +4,13 @@ import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.Pose2d;
-import com.acmerobotics.roadrunner.PoseVelocity2d;
 import com.acmerobotics.roadrunner.Rotation2d;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 
-import org.firstinspires.ftc.teamcode.drive.MecanumDrive;
 
 @TeleOp(name = "Mecanum Drive (Road Runner 1.0)", group = "TeleOp")
 public final class TeleOpDrive extends LinearOpMode {
@@ -20,11 +19,14 @@ public final class TeleOpDrive extends LinearOpMode {
             new Vector2d(0.0, 0.0),
             Rotation2d.exp(0.0));
 
+
+
     @Override
     public void runOpMode() throws InterruptedException {
 
-        // ---------------- Controls ----------------
 
+
+        // ---------------- Controls ----------------
         boolean slowMode = false;
         boolean previousA = false;
 
@@ -34,7 +36,7 @@ public final class TeleOpDrive extends LinearOpMode {
 
         // ---------------- Drive ----------------
 
-        MecanumDrive drive = new MecanumDrive(hardwareMap, INITIAL_POSE);
+        DriveSubsystem drive = new DriveSubsystem(hardwareMap, INITIAL_POSE);
 
         telemetry = new MultipleTelemetry(
                 telemetry,
@@ -164,13 +166,12 @@ public final class TeleOpDrive extends LinearOpMode {
                 telemetry.update();
 
                 Pose2d currentPose =
-                        drive.localizer.getPose();
+                        drive.updateAndGetPose();
 
                 Action returnHome =
-                        drive.actionBuilder(currentPose)
-                                .strafeToLinearHeading(
-                                        new Vector2d(0.0, 0.0),
-                                        0.0)
+                        drive.roadRunner()
+                                .actionBuilder(currentPose)
+                                .strafeToLinearHeading(new Vector2d(0, 0), Math.toRadians(0))
                                 .build();
 
                 Actions.runBlocking(returnHome);
@@ -191,11 +192,8 @@ public final class TeleOpDrive extends LinearOpMode {
             // =========================================================
             // UPDATE LOCALIZATION
             // =========================================================
-
-            drive.updatePoseEstimate();
-
             Pose2d pose =
-                    drive.localizer.getPose();
+                    drive.updateAndGetPose();
 
             // =========================================================
             // RAW JOYSTICK INPUT
@@ -342,37 +340,12 @@ public final class TeleOpDrive extends LinearOpMode {
                 previousHeadingError =
                         headingError;
             }
-
-            // =========================================================
-            // TRANSLATION VECTOR
-            // =========================================================
-
-            Vector2d translation =
-                    new Vector2d(
-                            currentX,
-                            currentY);
-
-            // =========================================================
-            // FIELD CENTRIC
-            // =========================================================
-
-            if (fieldCentric) {
-
-                translation =
-                        pose.heading.inverse()
-                                .times(translation);
-            }
-
             // =========================================================
             // SPEED MULTIPLIER
             // =========================================================
 
             double speedMultiplier =
                     slowMode ? 0.4 : 1.0;
-
-            translation =
-                    translation.times(speedMultiplier);
-
             // =========================================================
             // ROTATION POWER
             // =========================================================
@@ -393,13 +366,18 @@ public final class TeleOpDrive extends LinearOpMode {
             }
 
             // =========================================================
-            // DRIVE
-            // =========================================================
+// DRIVE
+// =========================================================
 
-            drive.setDrivePowers(
-                    new PoseVelocity2d(
-                            translation,
-                            rotationPower));
+            double outputX = currentX * speedMultiplier;
+            double outputY = currentY * speedMultiplier;
+            double outputRotation = rotationPower;
+
+            if (fieldCentric) {
+                drive.fieldCentric(outputX, outputY, outputRotation);
+            } else {
+                drive.robotCentric(outputX, outputY, outputRotation);
+            }
 
             // =========================================================
             // TELEMETRY
@@ -462,14 +440,6 @@ public final class TeleOpDrive extends LinearOpMode {
 
             telemetry.update();
         }
-
-        // =============================================================
-        // STOP ROBOT
-        // =============================================================
-
-        drive.setDrivePowers(
-                new PoseVelocity2d(
-                        new Vector2d(0.0, 0.0),
-                        0.0));
+        drive.stop();
     }
 }
