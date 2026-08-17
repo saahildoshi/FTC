@@ -70,21 +70,22 @@ public final class LoopingAutoTest extends LinearOpMode {
             robot.stopLiftMotor();
             return;
         }
+        while (opModeIsActive()) {
+            Actions.runBlocking(
+                    new SequentialAction(
+                            new ParallelAction(
+                                    firstDrivePath,
+                                    openClaw
+                            ),
+                            closeClaw,
+                            raiseLiftHigh,
+                            new ParallelAction(
+                                    returnDrivePath,
+                                    lowerLiftHome
+                            )
 
-        Actions.runBlocking(
-                new SequentialAction(
-                        new ParallelAction(
-                                firstDrivePath,
-                                openClaw
-                        ),
-                        closeClaw,
-                        raiseLiftHigh,
-                        new ParallelAction(
-                                returnDrivePath,
-                                lowerLiftHome
-                        )
-
-                )
-        );
+                    )
+            );
+        }
     }
 }
