@@ -42,6 +42,8 @@ public final class TeleOpDrive extends LinearOpMode {
                 telemetry,
                 FtcDashboard.getInstance().getTelemetry());
 
+        boolean previousX = false;
+
         // ---------------- Heading Hold PID ----------------
 
         boolean headingHold = false;
@@ -57,7 +59,7 @@ public final class TeleOpDrive extends LinearOpMode {
 
         long lastManualRotationTime = System.nanoTime();
 
-        final double HEADING_HOLD_DELAY = 0.2;
+        final double HEADING_HOLD_DELAY = 0.8;
 
         // ---------------- Acceleration Limiting ----------------
 
@@ -160,7 +162,9 @@ public final class TeleOpDrive extends LinearOpMode {
             // X = (0, 0, 0)
             // =========================================================
 
-            if (gamepad1.x) {
+            boolean xPressed = gamepad1.x;
+
+            if (xPressed && !previousX) {
 
                 telemetry.addLine("Returning home...");
                 telemetry.update();
@@ -173,6 +177,8 @@ public final class TeleOpDrive extends LinearOpMode {
                                 .actionBuilder(currentPose)
                                 .strafeToLinearHeading(new Vector2d(0, 0), Math.toRadians(0))
                                 .build();
+
+
 
                 Actions.runBlocking(returnHome);
 
@@ -188,6 +194,8 @@ public final class TeleOpDrive extends LinearOpMode {
                 currentY = 0.0;
                 currentRotation = 0.0;
             }
+
+            previousX = xPressed;
 
             // =========================================================
             // UPDATE LOCALIZATION
