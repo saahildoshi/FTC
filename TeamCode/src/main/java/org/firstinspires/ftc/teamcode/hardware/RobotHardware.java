@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.acmerobotics.roadrunner.ftc.Encoder;
@@ -60,6 +61,9 @@ public final class RobotHardware {
      * The Robot Controller configuration name is "leftLift".
      */
     public DcMotorEx leftLift;
+
+    /** Bottom/home magnetic limit switch for the lift. */
+    public TouchSensor magneticLimitSwitch;
 
     /**
      * Positional servo that opens and closes the claw.
@@ -124,6 +128,10 @@ public final class RobotHardware {
         leftLift = hardwareMap.get(
                 DcMotorEx.class,
                 RobotConstants.HardwareNames.LIFT);
+
+        magneticLimitSwitch = hardwareMap.get(
+                TouchSensor.class,
+                RobotConstants.HardwareNames.MAGNETIC_LIMIT_SWITCH);
 
         claw = hardwareMap.get(
                 Servo.class,

@@ -29,6 +29,8 @@ public final class LiftToPositionAction implements Action {
 
     @Override
     public boolean run(@NonNull TelemetryPacket packet) {
+        lift.update();
+
         // Command the motor only once when the Action begins.
         if (!started) {
             lift.moveTo(targetTicks);
@@ -37,7 +39,9 @@ public final class LiftToPositionAction implements Action {
 
         // Dashboard values let students watch the physical lift approach target.
         packet.put("liftTargetTicks", lift.getTargetPosition());
-        packet.put("liftCurrentTicks", lift.getCurrentPosition());
+        packet.put("liftHeightTicks", lift.getHeightTicks());
+        packet.put("liftHomed", lift.isHomed());
+        packet.put("liftHomeLimit", lift.isHomeLimitPressed());
 
         // Keep the Action alive until the encoder reaches the allowed tolerance.
         return !lift.atTarget();

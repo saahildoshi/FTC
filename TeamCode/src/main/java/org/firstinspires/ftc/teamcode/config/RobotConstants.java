@@ -30,6 +30,9 @@ public final class RobotConstants {
         // Single active lift motor selected from the optional two-motor design.
         public static final String LIFT = "leftLift";
 
+        // Bottom/home magnetic limit switch for the lift.
+        public static final String MAGNETIC_LIMIT_SWITCH = "magneticLimitSwitch";
+
         // Active positional servo used to open and close the claw.
         public static final String CLAW = "claw";
 
@@ -90,6 +93,9 @@ public final class RobotConstants {
 
         // Motor output used by RUN_TO_POSITION.
         public static final double MOVE_POWER = 0.75;
+
+        // Motor output used for manual raise/lower control.
+        public static final double MANUAL_POWER = 0.75;
 
         // An autonomous lift Action ends when the encoder is this close to target.
         public static final int TOLERANCE_TICKS = 25;
