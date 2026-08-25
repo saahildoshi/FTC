@@ -104,8 +104,8 @@ public final class RobotConstants {
      * starting values and must be checked against the physical linkage.
      */
     public static final class Claw {
-        public static final double OPEN_POSITION = 0.70;
-        public static final double CLOSED_POSITION = 0.30;
+        public static final double OPEN_POSITION = 0.60;
+        public static final double CLOSED_POSITION = 0.0;
 
         private Claw() { }
     }

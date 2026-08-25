@@ -87,4 +87,6 @@ public final class LiftSubsystem {
     public void stop() {
         liftMotor.setPower(0.0);
     }
+    public void raise(){liftMotor.setPower(1.0);}
+    public void lower(){liftMotor.setPower(-1.0);}
 }

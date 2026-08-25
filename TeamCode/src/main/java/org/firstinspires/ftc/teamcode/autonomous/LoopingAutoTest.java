@@ -180,7 +180,6 @@ public final class LoopingAutoTest extends LinearOpMode {
                             // Drive to the center while opening the claw.
                             new ParallelAction(
                                     firstDrivePath
-                                    //openClaw
                             ),
 
                             // Close the claw once the center position is reached.
@@ -192,11 +191,15 @@ public final class LoopingAutoTest extends LinearOpMode {
                             // Return toward the starting position while lowering the
                             // lift back to its base/home encoder position.
                             new ParallelAction(
-                                    secondDrivePath
-                                    //lowerLiftHome
+                                    secondDrivePath,
+                                    raiseLiftHigh
                             ),
-
-                            thirdDrivePath,
+                            openClaw,
+                            new ParallelAction(
+                                    thirdDrivePath,
+                                    closeClaw,
+                                    lowerLiftHome
+                            ),
                             returnTwoDrivePath
                     )
 
