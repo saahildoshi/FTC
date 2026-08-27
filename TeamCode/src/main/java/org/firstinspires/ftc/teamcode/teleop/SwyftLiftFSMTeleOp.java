@@ -38,7 +38,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
 
         ElapsedTime homingTimer = new ElapsedTime();
 
-        LiftState state = lift.isAtHome()
+        LiftState state = lift.isHomeLimitPressed()
                 ? LiftState.HOME
                 : LiftState.NOT_HOMED;
 
@@ -47,7 +47,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
         telemetry.addLine("Swyft Lift FSM ready");
         telemetry.addLine("A = Home | Y = High");
         telemetry.addLine("Either gamepad can control the lift");
-        telemetry.addData("Home switch", lift.isAtHome());
+        telemetry.addData("Home switch", lift.isHomeLimitPressed());
         telemetry.update();
 
         waitForStart();
@@ -68,9 +68,6 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
             boolean aPressed = aNow && !previousA;
             boolean yPressed = yNow && !previousY;
 
-            // ----------------------------------------------------------
-            // DRIVER COMMANDS
-            // ----------------------------------------------------------
             if (aPressed) {
                 claw.close();
                 lift.moveHome();
@@ -78,31 +75,20 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                 state = LiftState.MOVING_TO_HOME;
             }
 
-            // HIGH is allowed only after the encoder has been calibrated by
-            // actually reaching the magnetic home switch at least once.
             if (yPressed && lift.isHomed()) {
                 claw.close();
                 lift.moveHigh();
                 state = LiftState.MOVING_TO_HIGH;
             }
 
-            // ----------------------------------------------------------
-            // UPDATE THE LIFT FIRST.
-            // This is important: the magnetic switch must be read and downward
-            // motor power stopped BEFORE the FSM evaluates HOME/timeout.
-            // ----------------------------------------------------------
+            // Read the magnetic switch and update lift control before evaluating FSM state.
             lift.update();
 
-            // ----------------------------------------------------------
-            // FINITE STATE MACHINE
-            // ----------------------------------------------------------
             switch (state) {
                 case NOT_HOMED:
                     claw.close();
 
-                    // If the sensor is physically pressed, HOME is established
-                    // immediately by LiftSubsystem.update().
-                    if (lift.isAtHome()) {
+                    if (lift.isHomeLimitPressed()) {
                         state = LiftState.HOME;
                     }
                     break;
@@ -110,9 +96,8 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                 case MOVING_TO_HOME:
                     claw.close();
 
-                    // THE MAGNETIC SWITCH IS THE HOME CONDITION.
-                    // Encoder ticks are intentionally NOT checked here.
-                    if (lift.isAtHome()) {
+                    // Magnetic limit switch is the physical HOME condition.
+                    if (lift.isHomeLimitPressed()) {
                         lift.stop();
                         state = LiftState.HOME;
                     } else if (lift.didHomingTimeOut()
@@ -124,10 +109,6 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
 
                 case HOME:
                     claw.close();
-
-                    // HOME state represents the physical switch location.
-                    // If the lift leaves the switch because another command is
-                    // issued, the state will be changed by that command.
                     break;
 
                 case MOVING_TO_HIGH:
@@ -148,9 +129,6 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                     break;
             }
 
-            // ----------------------------------------------------------
-            // TELEMETRY
-            // ----------------------------------------------------------
             telemetry.addData("FSM State", state);
             telemetry.addData("Gamepad A", aNow);
             telemetry.addData("Gamepad Y", yNow);
@@ -159,7 +137,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
             telemetry.addData("Lift Error", lift.getError());
             telemetry.addData("At Target", lift.atTarget());
             telemetry.addData("Encoder Calibrated", lift.isHomed());
-            telemetry.addData("PHYSICAL HOME SWITCH", lift.isAtHome());
+            telemetry.addData("PHYSICAL HOME SWITCH", lift.isHomeLimitPressed());
             telemetry.addData("TouchSensor isPressed", robot.magneticLimitSwitch.isPressed());
             telemetry.addData("TouchSensor value", robot.magneticLimitSwitch.getValue());
             telemetry.addData("Homing", lift.isHoming());
@@ -178,7 +156,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                 telemetry.addLine("Y IGNORED: Home the lift with A first");
             }
 
-            if (lift.isAtHome()) {
+            if (lift.isHomeLimitPressed()) {
                 telemetry.addLine("HOME SENSOR PRESSED - DOWNWARD POWER BLOCKED");
             }
 
