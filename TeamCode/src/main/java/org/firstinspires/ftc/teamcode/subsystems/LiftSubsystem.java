@@ -270,7 +270,10 @@ public final class LiftSubsystem {
         liftMotor.setPower(motorPower);
     }
 
-    /** Manually lower the lift while respecting the physical home switch. */
+    /**
+     * Manually lower the lift at full negative power while respecting the
+     * physical REV magnetic home switch and established encoder home limit.
+     */
     public void lower() {
         homing = false;
 
@@ -281,8 +284,9 @@ public final class LiftSubsystem {
             return;
         }
 
-        motorPower = -Math.abs(LiftConstants.MANUAL_POWER);
-        liftMotor.setPower(motorPower);
+        // Explicit full-power downward command for the manual lift test.
+        motorPower = -1.0;
+        liftMotor.setPower(-1.0);
     }
 
     public void stop() {
