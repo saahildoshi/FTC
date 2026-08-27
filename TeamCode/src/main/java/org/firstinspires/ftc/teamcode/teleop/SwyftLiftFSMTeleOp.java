@@ -38,7 +38,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
 
         ElapsedTime homingTimer = new ElapsedTime();
 
-        LiftState state = lift.isHomed()
+        LiftState state = lift.isAtHome()
                 ? LiftState.HOME
                 : LiftState.NOT_HOMED;
 
@@ -47,7 +47,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
         telemetry.addLine("Swyft Lift FSM ready");
         telemetry.addLine("A = Home | Y = High");
         telemetry.addLine("Either gamepad can control the lift");
-        telemetry.addData("Home switch", lift.isHomeLimitPressed());
+        telemetry.addData("Home switch", lift.isAtHome());
         telemetry.update();
 
         waitForStart();
@@ -68,7 +68,9 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
             boolean aPressed = aNow && !previousA;
             boolean yPressed = yNow && !previousY;
 
-            // A always starts a physical homing attempt.
+            // ----------------------------------------------------------
+            // DRIVER COMMANDS
+            // ----------------------------------------------------------
             if (aPressed) {
                 claw.close();
                 lift.moveHome();
@@ -76,24 +78,45 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                 state = LiftState.MOVING_TO_HOME;
             }
 
-            // Y is intentionally allowed only after a successful physical home.
+            // HIGH is allowed only after the encoder has been calibrated by
+            // actually reaching the magnetic home switch at least once.
             if (yPressed && lift.isHomed()) {
                 claw.close();
                 lift.moveHigh();
                 state = LiftState.MOVING_TO_HIGH;
             }
 
+            // ----------------------------------------------------------
+            // UPDATE THE LIFT FIRST.
+            // This is important: the magnetic switch must be read and downward
+            // motor power stopped BEFORE the FSM evaluates HOME/timeout.
+            // ----------------------------------------------------------
+            lift.update();
+
+            // ----------------------------------------------------------
+            // FINITE STATE MACHINE
+            // ----------------------------------------------------------
             switch (state) {
                 case NOT_HOMED:
                     claw.close();
+
+                    // If the sensor is physically pressed, HOME is established
+                    // immediately by LiftSubsystem.update().
+                    if (lift.isAtHome()) {
+                        state = LiftState.HOME;
+                    }
                     break;
 
                 case MOVING_TO_HOME:
                     claw.close();
 
-                    if (lift.isHomed() && lift.isHomeLimitPressed()) {
+                    // THE MAGNETIC SWITCH IS THE HOME CONDITION.
+                    // Encoder ticks are intentionally NOT checked here.
+                    if (lift.isAtHome()) {
+                        lift.stop();
                         state = LiftState.HOME;
-                    } else if (homingTimer.seconds() >= LiftConstants.HOMING_TIMEOUT_SECONDS) {
+                    } else if (lift.didHomingTimeOut()
+                            || homingTimer.seconds() >= LiftConstants.HOMING_TIMEOUT_SECONDS) {
                         lift.stop();
                         state = LiftState.HOMING_ERROR;
                     }
@@ -101,10 +124,15 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
 
                 case HOME:
                     claw.close();
+
+                    // HOME state represents the physical switch location.
+                    // If the lift leaves the switch because another command is
+                    // issued, the state will be changed by that command.
                     break;
 
                 case MOVING_TO_HIGH:
                     claw.close();
+
                     if (lift.atTarget()) {
                         state = LiftState.HIGH;
                     }
@@ -120,9 +148,9 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                     break;
             }
 
-            // Must run every loop for PID and magnetic-switch homing.
-            lift.update();
-
+            // ----------------------------------------------------------
+            // TELEMETRY
+            // ----------------------------------------------------------
             telemetry.addData("FSM State", state);
             telemetry.addData("Gamepad A", aNow);
             telemetry.addData("Gamepad Y", yNow);
@@ -130,9 +158,15 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
             telemetry.addData("Lift Position", lift.getCurrentPosition());
             telemetry.addData("Lift Error", lift.getError());
             telemetry.addData("At Target", lift.atTarget());
-            telemetry.addData("Homed", lift.isHomed());
-            telemetry.addData("Home Switch", lift.isHomeLimitPressed());
+            telemetry.addData("Encoder Calibrated", lift.isHomed());
+            telemetry.addData("PHYSICAL HOME SWITCH", lift.isAtHome());
+            telemetry.addData("TouchSensor isPressed", robot.magneticLimitSwitch.isPressed());
+            telemetry.addData("TouchSensor value", robot.magneticLimitSwitch.getValue());
+            telemetry.addData("Homing", lift.isHoming());
+            telemetry.addData("Homing Timed Out", lift.didHomingTimeOut());
+            telemetry.addData("Motor Power", lift.getMotorPower());
             telemetry.addData("Arm/Claw Position", claw.getPosition());
+
             telemetry.addData("kP", LiftConstants.kP);
             telemetry.addData("kI", LiftConstants.kI);
             telemetry.addData("kD", LiftConstants.kD);
@@ -144,8 +178,8 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
                 telemetry.addLine("Y IGNORED: Home the lift with A first");
             }
 
-            if (aPressed && lift.isHomeLimitPressed()) {
-                telemetry.addLine("A pressed while HOME SWITCH already reads PRESSED");
+            if (lift.isAtHome()) {
+                telemetry.addLine("HOME SENSOR PRESSED - DOWNWARD POWER BLOCKED");
             }
 
             telemetry.update();
