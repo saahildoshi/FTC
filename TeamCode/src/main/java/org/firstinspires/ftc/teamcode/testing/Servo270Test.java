@@ -3,28 +3,25 @@ package org.firstinspires.ftc.teamcode.testing;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
 
 /**
- * TEST FOR A 270 DEGREE POSITIONAL SERVO.
+ * SIMPLE POSITION TEST FOR A 270 DEGREE POSITIONAL SERVO.
  *
  * Controls:
- * - Press A once: 0 -> 90 degrees
- * - Press A again: 90 -> 180 degrees
- * - Press A a third time: 180 -> 270 degrees
- * - After a short delay at 270 degrees, the servo returns to 0 degrees
+ * - A = 0 degrees
+ * - X = 90 degrees
+ * - Y = 180 degrees
+ * - B = 270 degrees
  */
 @TeleOp(name = "270 Degree Servo Test", group = "Testing")
 public final class Servo270Test extends LinearOpMode {
 
-    private static final double ZERO_POSITION = 0.0;
-    private static final double STEP_1_POSITION = 1.0 / 3.0;
-    private static final double STEP_2_POSITION = 2.0 / 3.0;
-    private static final double STEP_3_POSITION = 1.0;
-
-    private static final double RESET_DELAY_SECONDS = 0.75;
+    private static final double ZERO_DEGREES = 0.0;
+    private static final double NINETY_DEGREES = 1.0 / 3.0;
+    private static final double ONE_EIGHTY_DEGREES = 2.0 / 3.0;
+    private static final double TWO_SEVENTY_DEGREES = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -32,80 +29,47 @@ public final class Servo270Test extends LinearOpMode {
         RobotHardware robot = new RobotHardware();
         robot.initVerifiedHardware(hardwareMap);
 
-        Servo servo = robot.servo270;
+        Servo servo270 = robot.servo270;
 
-        // If the physical left/right direction is reversed, uncomment this line:
-        // servo.setDirection(Servo.Direction.REVERSE);
+        // If the physical direction is backwards, uncomment this line:
+        // servo270.setDirection(Servo.Direction.REVERSE);
 
-        int step = 0;
-        boolean previousA = false;
-        boolean waitingToReset = false;
-
-        ElapsedTime resetTimer = new ElapsedTime();
-
-        servo.setPosition(ZERO_POSITION);
+        // Start at 0 degrees.
+        servo270.setPosition(ZERO_DEGREES);
 
         telemetry.addLine("270 Degree Servo Test Ready");
-        telemetry.addLine("A = Move Left 90 Degrees");
+        telemetry.addLine("A = 0 degrees");
+        telemetry.addLine("X = 90 degrees");
+        telemetry.addLine("Y = 180 degrees");
+        telemetry.addLine("B = 270 degrees");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
 
-            boolean aPressed = gamepad1.a && !previousA;
-
-            if (aPressed && !waitingToReset) {
-                step++;
-
-                switch (step) {
-                    case 1:
-                        servo.setPosition(STEP_1_POSITION);
-                        break;
-
-                    case 2:
-                        servo.setPosition(STEP_2_POSITION);
-                        break;
-
-                    case 3:
-                        servo.setPosition(STEP_3_POSITION);
-                        resetTimer.reset();
-                        waitingToReset = true;
-                        break;
-
-                    default:
-                        step = 0;
-                        servo.setPosition(ZERO_POSITION);
-                        break;
-                }
+            if (gamepad1.a) {
+                servo270.setPosition(ZERO_DEGREES);
             }
 
-            if (waitingToReset
-                    && resetTimer.seconds() >= RESET_DELAY_SECONDS) {
-                servo.setPosition(ZERO_POSITION);
-                step = 0;
-                waitingToReset = false;
+            if (gamepad1.x) {
+                servo270.setPosition(NINETY_DEGREES);
             }
 
-            telemetry.addData("Step", step);
-            telemetry.addData("Servo Position", servo.getPosition());
-
-            if (step == 0) {
-                telemetry.addData("Approx Angle", "0 degrees");
-            } else if (step == 1) {
-                telemetry.addData("Approx Angle", "90 degrees");
-            } else if (step == 2) {
-                telemetry.addData("Approx Angle", "180 degrees");
-            } else {
-                telemetry.addData("Approx Angle", "270 degrees");
+            if (gamepad1.y) {
+                servo270.setPosition(ONE_EIGHTY_DEGREES);
             }
 
-            telemetry.addData("Waiting To Reset", waitingToReset);
+            if (gamepad1.b) {
+                servo270.setPosition(TWO_SEVENTY_DEGREES);
+            }
+
+            telemetry.addData("Servo Position", servo270.getPosition());
+            telemetry.addData("0 deg", ZERO_DEGREES);
+            telemetry.addData("90 deg", NINETY_DEGREES);
+            telemetry.addData("180 deg", ONE_EIGHTY_DEGREES);
+            telemetry.addData("270 deg", TWO_SEVENTY_DEGREES);
             telemetry.update();
-
-            previousA = gamepad1.a;
         }
-
-        servo.setPosition(ZERO_POSITION);
     }
 }
