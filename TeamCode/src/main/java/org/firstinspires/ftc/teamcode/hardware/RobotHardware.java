@@ -33,6 +33,7 @@ public final class RobotHardware {
     public TouchSensor magneticLimitSwitch;
     public Servo claw;
     public DcMotorEx intake;
+    public Servo servo270;
 
     public void initVerifiedHardware(HardwareMap hardwareMap) {
         leftFront = hardwareMap.get(
@@ -90,6 +91,10 @@ public final class RobotHardware {
         intake = hardwareMap.get(
                 DcMotorEx.class,
                 RobotConstants.HardwareNames.INTAKE);
+
+        servo270 = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.SERVO_270);
     }
 
     public void stopDriveMotors() {
