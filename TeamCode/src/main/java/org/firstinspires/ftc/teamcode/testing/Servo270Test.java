@@ -31,8 +31,9 @@ public final class Servo270Test extends LinearOpMode {
 
         Servo servo270 = robot.servo270;
 
-        // If the physical direction is backwards, uncomment this line:
-        // servo270.setDirection(Servo.Direction.REVERSE);
+        // Reverse the servo's logical direction so the commanded positions
+        // move in the opposite physical direction.
+        servo270.setDirection(Servo.Direction.REVERSE);
 
         // Start at 0 degrees.
         servo270.setPosition(ZERO_DEGREES);
@@ -65,6 +66,7 @@ public final class Servo270Test extends LinearOpMode {
             }
 
             telemetry.addData("Servo Position", servo270.getPosition());
+            telemetry.addData("Direction", "REVERSE");
             telemetry.addData("0 deg", ZERO_DEGREES);
             telemetry.addData("90 deg", NINETY_DEGREES);
             telemetry.addData("180 deg", ONE_EIGHTY_DEGREES);
