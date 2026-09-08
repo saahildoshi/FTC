@@ -6,52 +6,43 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Standalone 270-degree positional servo test.
+ * Simple servo test.
  *
- * This test intentionally DOES NOT initialize RobotHardware. That keeps an
- * unrelated missing motor/sensor from preventing the servo test from running.
- *
- * Controls:
- *   A = step 0 -> 90 -> 180 -> 270, hold 3 sec, return to 0
- *   X = force 0 degrees
- *   Y = force 90 degrees
- *   B = force 180 degrees
- *   Right bumper = force 270 degrees
+ * Press A:
+ *   1. Servo moves to 180-degree position.
+ *   2. Holds for 2 seconds.
+ *   3. Automatically returns to the starting position.
  */
 @TeleOp(name = "270 Degree Servo Test", group = "Testing")
 public final class Servo270Test extends LinearOpMode {
 
     private static final String SERVO_NAME = "servo270";
 
-    private static final double ZERO_DEGREES = 0.0;
-    private static final double NINETY_DEGREES = 1.0 / 3.0;
-    private static final double ONE_EIGHTY_DEGREES = 2.0 / 3.0;
-    private static final double TWO_SEVENTY_DEGREES = 1.0;
+    // For a 270-degree servo:
+    // 0.0 = approximately 0 degrees
+    // 2/3 = approximately 180 degrees
+    private static final double CLOSED_POSITION = 0.0;
+    private static final double OPEN_POSITION = 2.0 / 3.0;
 
-    private static final double RESET_DELAY_SECONDS = 3.0;
+    private static final double HOLD_TIME_SECONDS = 2.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
 
-        // Only initialize the device being tested.
         Servo servo270 = hardwareMap.get(Servo.class, SERVO_NAME);
 
-        // Keep the direction reversed to match the mechanism configuration.
+        // Keep reversed direction to match the current mechanism setup.
         servo270.setDirection(Servo.Direction.REVERSE);
 
-        int pressCount = 0;
+        ElapsedTime timer = new ElapsedTime();
+
         boolean previousA = false;
-        boolean waitingToReset = false;
-        double commandedPosition = ZERO_DEGREES;
+        boolean isOpen = false;
 
-        ElapsedTime resetTimer = new ElapsedTime();
+        servo270.setPosition(CLOSED_POSITION);
 
-        servo270.setPosition(commandedPosition);
-
-        telemetry.addLine("270 Degree Servo Test Ready");
-        telemetry.addData("Hardware name", SERVO_NAME);
-        telemetry.addLine("A: step 90 -> 180 -> 270 -> 3 sec -> 0");
-        telemetry.addLine("X=0, Y=90, B=180, RB=270");
+        telemetry.addLine("Servo Test Ready");
+        telemetry.addLine("Press A to open 180 degrees for 2 seconds");
         telemetry.update();
 
         waitForStart();
@@ -60,63 +51,25 @@ public final class Servo270Test extends LinearOpMode {
 
             boolean aPressed = gamepad1.a && !previousA;
 
-            // Direct-position buttons make it easy to prove each endpoint.
-            if (gamepad1.x) {
-                commandedPosition = ZERO_DEGREES;
-                pressCount = 0;
-                waitingToReset = false;
-            }
-            else if (gamepad1.y) {
-                commandedPosition = NINETY_DEGREES;
-                pressCount = 1;
-                waitingToReset = false;
-            }
-            else if (gamepad1.b) {
-                commandedPosition = ONE_EIGHTY_DEGREES;
-                pressCount = 2;
-                waitingToReset = false;
-            }
-            else if (gamepad1.right_bumper) {
-                commandedPosition = TWO_SEVENTY_DEGREES;
-                pressCount = 3;
-                waitingToReset = false;
-            }
-            else if (aPressed && !waitingToReset) {
-                pressCount++;
-
-                if (pressCount == 1) {
-                    commandedPosition = NINETY_DEGREES;
-                }
-                else if (pressCount == 2) {
-                    commandedPosition = ONE_EIGHTY_DEGREES;
-                }
-                else if (pressCount >= 3) {
-                    commandedPosition = TWO_SEVENTY_DEGREES;
-                    pressCount = 3;
-                    resetTimer.reset();
-                    waitingToReset = true;
-                }
+            if (aPressed && !isOpen) {
+                servo270.setPosition(OPEN_POSITION);
+                timer.reset();
+                isOpen = true;
             }
 
-            if (waitingToReset && resetTimer.seconds() >= RESET_DELAY_SECONDS) {
-                commandedPosition = ZERO_DEGREES;
-                pressCount = 0;
-                waitingToReset = false;
+            if (isOpen && timer.seconds() >= HOLD_TIME_SECONDS) {
+                servo270.setPosition(CLOSED_POSITION);
+                isOpen = false;
             }
 
-            servo270.setPosition(commandedPosition);
+            telemetry.addData("Servo Position", "%.3f", servo270.getPosition());
+            telemetry.addData("State", isOpen ? "OPEN" : "CLOSED");
 
-            telemetry.addData("Press Count", pressCount);
-            telemetry.addData("Commanded Position", "%.3f", commandedPosition);
-            telemetry.addData("SDK Servo Position", "%.3f", servo270.getPosition());
-            telemetry.addData("Direction", servo270.getDirection());
-            telemetry.addData("Waiting To Reset", waitingToReset);
-
-            if (waitingToReset) {
+            if (isOpen) {
                 telemetry.addData(
-                        "Seconds Until Reset",
-                        "%.2f",
-                        Math.max(0.0, RESET_DELAY_SECONDS - resetTimer.seconds()));
+                        "Reset In",
+                        "%.2f sec",
+                        Math.max(0.0, HOLD_TIME_SECONDS - timer.seconds()));
             }
 
             telemetry.update();
@@ -125,6 +78,6 @@ public final class Servo270Test extends LinearOpMode {
             idle();
         }
 
-        servo270.setPosition(ZERO_DEGREES);
+        servo270.setPosition(CLOSED_POSITION);
     }
 }
