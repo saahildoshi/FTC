@@ -10,12 +10,12 @@ import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
 /**
  * 270 DEGREE POSITIONAL SERVO STEP TEST.
  *
- * Control:
- * - Each NEW press of A advances the servo by 1/3 of its range.
- * - Press 1 -> 90 degrees
- * - Press 2 -> 180 degrees
- * - Press 3 -> 270 degrees
- * - Hold at 270 degrees for 3 seconds, then reset to 0 degrees and reset the count.
+ * A button sequence:
+ * 1st press = 90 degrees
+ * 2nd press = 180 degrees
+ * 3rd press = 270 degrees
+ * After the 3rd press, hold at 270 degrees for 3 seconds,
+ * then automatically return to 0 degrees and reset the press count.
  */
 @TeleOp(name = "270 Degree Servo Test", group = "Testing")
 public final class Servo270Test extends LinearOpMode {
@@ -24,6 +24,7 @@ public final class Servo270Test extends LinearOpMode {
     private static final double NINETY_DEGREES = 1.0 / 3.0;
     private static final double ONE_EIGHTY_DEGREES = 2.0 / 3.0;
     private static final double TWO_SEVENTY_DEGREES = 1.0;
+
     private static final double RESET_DELAY_SECONDS = 3.0;
 
     @Override
@@ -34,26 +35,27 @@ public final class Servo270Test extends LinearOpMode {
 
         Servo servo270 = robot.servo270;
 
-        // Keep the reversed physical direction from the previous test.
+        // Servo direction is intentionally reversed for this mechanism.
         servo270.setDirection(Servo.Direction.REVERSE);
 
         int pressCount = 0;
         boolean previousA = false;
         boolean waitingToReset = false;
+
         ElapsedTime resetTimer = new ElapsedTime();
 
-        // Start at 0 degrees.
+        // Start at the zero position.
         servo270.setPosition(ZERO_DEGREES);
 
         telemetry.addLine("270 Degree Servo Step Test Ready");
-        telemetry.addLine("A = advance one-third");
+        telemetry.addLine("Press A three times: 90 -> 180 -> 270 -> wait 3 sec -> 0");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
 
-            // Rising-edge detection: holding A only counts once.
+            // Count only a new press, not a held button.
             boolean aPressed = gamepad1.a && !previousA;
 
             if (aPressed && !waitingToReset) {
@@ -61,16 +63,21 @@ public final class Servo270Test extends LinearOpMode {
 
                 if (pressCount == 1) {
                     servo270.setPosition(NINETY_DEGREES);
-                } else if (pressCount == 2) {
+                }
+                else if (pressCount == 2) {
                     servo270.setPosition(ONE_EIGHTY_DEGREES);
-                } else if (pressCount == 3) {
+                }
+                else if (pressCount == 3) {
+                    // Third press goes to the full 270-degree position first.
                     servo270.setPosition(TWO_SEVENTY_DEGREES);
+
+                    // Start a non-blocking three-second hold timer.
                     resetTimer.reset();
                     waitingToReset = true;
                 }
             }
 
-            // After 3 seconds at 270 degrees, return to zero and restart the sequence.
+            // Hold at 270 degrees for three seconds before resetting.
             if (waitingToReset && resetTimer.seconds() >= RESET_DELAY_SECONDS) {
                 servo270.setPosition(ZERO_DEGREES);
                 pressCount = 0;
@@ -84,14 +91,18 @@ public final class Servo270Test extends LinearOpMode {
 
             if (pressCount == 0) {
                 telemetry.addData("Approx Angle", "0 degrees");
-            } else if (pressCount == 1) {
+            }
+            else if (pressCount == 1) {
                 telemetry.addData("Approx Angle", "90 degrees");
-            } else if (pressCount == 2) {
+            }
+            else if (pressCount == 2) {
                 telemetry.addData("Approx Angle", "180 degrees");
-            } else {
+            }
+            else {
                 telemetry.addData("Approx Angle", "270 degrees");
-                telemetry.addData("Reset In", Math.max(0.0,
-                        RESET_DELAY_SECONDS - resetTimer.seconds()));
+                telemetry.addData(
+                        "Seconds Until Reset",
+                        Math.max(0.0, RESET_DELAY_SECONDS - resetTimer.seconds()));
             }
 
             telemetry.update();
