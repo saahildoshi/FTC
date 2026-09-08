@@ -7,13 +7,13 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
 
 /**
- * SIMPLE POSITION TEST FOR A 270 DEGREE POSITIONAL SERVO.
+ * 270 DEGREE POSITIONAL SERVO STEP TEST.
  *
- * Controls:
- * - A = 0 degrees
- * - X = 90 degrees
- * - Y = 180 degrees
- * - B = 270 degrees
+ * Control:
+ * - Each NEW press of A advances the servo by 1/3 of its range.
+ * - Press 1 -> 90 degrees
+ * - Press 2 -> 180 degrees
+ * - Press 3 -> reset immediately to 0 degrees and reset the count.
  */
 @TeleOp(name = "270 Degree Servo Test", group = "Testing")
 public final class Servo270Test extends LinearOpMode {
@@ -21,7 +21,6 @@ public final class Servo270Test extends LinearOpMode {
     private static final double ZERO_DEGREES = 0.0;
     private static final double NINETY_DEGREES = 1.0 / 3.0;
     private static final double ONE_EIGHTY_DEGREES = 2.0 / 3.0;
-    private static final double TWO_SEVENTY_DEGREES = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -31,47 +30,57 @@ public final class Servo270Test extends LinearOpMode {
 
         Servo servo270 = robot.servo270;
 
-        // Reverse the servo's logical direction so the commanded positions
-        // move in the opposite physical direction.
+        // Keep the reversed physical direction from the previous test.
         servo270.setDirection(Servo.Direction.REVERSE);
+
+        int pressCount = 0;
+        boolean previousA = false;
 
         // Start at 0 degrees.
         servo270.setPosition(ZERO_DEGREES);
 
-        telemetry.addLine("270 Degree Servo Test Ready");
-        telemetry.addLine("A = 0 degrees");
-        telemetry.addLine("X = 90 degrees");
-        telemetry.addLine("Y = 180 degrees");
-        telemetry.addLine("B = 270 degrees");
+        telemetry.addLine("270 Degree Servo Step Test Ready");
+        telemetry.addLine("A = advance one-third");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
 
-            if (gamepad1.a) {
-                servo270.setPosition(ZERO_DEGREES);
+            // Rising-edge detection: holding A only counts once.
+            boolean aPressed = gamepad1.a && !previousA;
+
+            if (aPressed) {
+                pressCount++;
+
+                if (pressCount == 1) {
+                    servo270.setPosition(NINETY_DEGREES);
+                } else if (pressCount == 2) {
+                    servo270.setPosition(ONE_EIGHTY_DEGREES);
+                } else {
+                    // Third press resets both the servo and the counter.
+                    servo270.setPosition(ZERO_DEGREES);
+                    pressCount = 0;
+                }
             }
 
-            if (gamepad1.x) {
-                servo270.setPosition(NINETY_DEGREES);
-            }
-
-            if (gamepad1.y) {
-                servo270.setPosition(ONE_EIGHTY_DEGREES);
-            }
-
-            if (gamepad1.b) {
-                servo270.setPosition(TWO_SEVENTY_DEGREES);
-            }
-
+            telemetry.addData("Press Count", pressCount);
             telemetry.addData("Servo Position", servo270.getPosition());
             telemetry.addData("Direction", "REVERSE");
-            telemetry.addData("0 deg", ZERO_DEGREES);
-            telemetry.addData("90 deg", NINETY_DEGREES);
-            telemetry.addData("180 deg", ONE_EIGHTY_DEGREES);
-            telemetry.addData("270 deg", TWO_SEVENTY_DEGREES);
+
+            if (pressCount == 0) {
+                telemetry.addData("Approx Angle", "0 degrees");
+            } else if (pressCount == 1) {
+                telemetry.addData("Approx Angle", "90 degrees");
+            } else {
+                telemetry.addData("Approx Angle", "180 degrees");
+            }
+
             telemetry.update();
+
+            previousA = gamepad1.a;
         }
+
+        servo270.setPosition(ZERO_DEGREES);
     }
 }
