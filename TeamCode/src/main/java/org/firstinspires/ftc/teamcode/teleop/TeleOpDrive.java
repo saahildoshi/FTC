@@ -50,8 +50,8 @@ public final class TeleOpDrive extends LinearOpMode {
             new Vector2d(0.0, 0.0),
             Rotation2d.exp(0.0));
 
-    // Dashboard-adjustable intake power, matching IntakeMotorTest behavior.
-    public static double INTAKE_TEST_POWER = 0.50;
+    // Fixed to the same value used by the working IntakeMotorTest.
+    private static final double INTAKE_POWER = 0.50;
 
     // 270 servo positions from Servo270Test.
     public static double SERVO_270_START_POSITION = 0.0;
@@ -259,18 +259,19 @@ public final class TeleOpDrive extends LinearOpMode {
             previousX = xPressed;
 
             // =========================================================
-            // GAMEPAD 2 - INTAKE TEST CONTROL
+            // GAMEPAD 2 - INTAKE CONTROL
+            // Exact working IntakeMotorTest logic, moved to gamepad2.
             // =========================================================
 
-            double intakePower = 0.0;
+            double commandedIntakePower = 0.0;
 
             if (gamepad2.right_trigger > 0.10) {
-                intakePower = Math.abs(INTAKE_TEST_POWER);
+                commandedIntakePower = Math.abs(INTAKE_POWER);
             } else if (gamepad2.left_trigger > 0.10) {
-                intakePower = -Math.abs(INTAKE_TEST_POWER);
+                commandedIntakePower = -Math.abs(INTAKE_POWER);
             }
 
-            intake.setPower(intakePower);
+            intake.setPower(commandedIntakePower);
 
             // =========================================================
             // GAMEPAD 2 - AUTOMATIC HIGH LIFT SEQUENCE
@@ -509,7 +510,11 @@ public final class TeleOpDrive extends LinearOpMode {
             telemetry.addData("Rotation", "%.2f", currentRotation);
 
             telemetry.addLine("=== GAMEPAD 2 / SUBSYSTEMS ===");
-            telemetry.addData("Intake Power", "%.2f", intake.getPower());
+            telemetry.addData("GP2 Right Trigger", "%.2f", gamepad2.right_trigger);
+            telemetry.addData("GP2 Left Trigger", "%.2f", gamepad2.left_trigger);
+            telemetry.addData("Intake Fixed Power", "%.2f", INTAKE_POWER);
+            telemetry.addData("Intake Command", "%.2f", commandedIntakePower);
+            telemetry.addData("Actual Intake Motor Power", "%.2f", intake.getPower());
             telemetry.addData("Intake Encoder", intake.getCurrentPosition());
             telemetry.addData("Intake Velocity", "%.1f", intake.getVelocity());
 
