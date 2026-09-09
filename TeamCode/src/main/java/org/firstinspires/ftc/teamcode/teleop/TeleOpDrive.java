@@ -34,12 +34,13 @@ import org.firstinspires.ftc.teamcode.subsystems.LiftSubsystem;
  * - Left trigger: intake reverse
  * - D-pad Up: manually raise lift
  * - D-pad Down: manually lower lift
+ * - Y: automatically move lift to HIGH, then open claw
  * - Left bumper: close claw
  * - Right bumper: open claw
- * - A: move 270 servo to about 180 degrees for 2 seconds, then reset
+ * - A: move 270 servo to about 180 degrees for 1 second, then reset
  *
- * The 270 servo sequence is intentionally non-blocking so drivetrain and other
- * subsystem controls continue updating during its two-second hold.
+ * The automatic lift sequence and 270 servo sequence are non-blocking so the
+ * drivetrain and other subsystem controls continue updating while they run.
  */
 @Config
 @TeleOp(name = "Mecanum Drive (Road Runner 1.0)", group = "TeleOp")
@@ -55,7 +56,7 @@ public final class TeleOpDrive extends LinearOpMode {
     // 270 servo positions from Servo270Test.
     public static double SERVO_270_START_POSITION = 0.0;
     public static double SERVO_270_OPEN_180_POSITION = 2.0 / 3.0;
-    public static double SERVO_270_HOLD_SECONDS = 2.0;
+    public static double SERVO_270_HOLD_SECONDS = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -127,6 +128,10 @@ public final class TeleOpDrive extends LinearOpMode {
         boolean servo270CycleActive = false;
         long servo270OpenedTimeNs = 0L;
 
+        boolean previousHighY = false;
+        boolean autoHighActive = false;
+        boolean autoHighClawOpened = false;
+
         // ---------------- Loop Timing ----------------
 
         long previousLoopTimeNs;
@@ -137,8 +142,9 @@ public final class TeleOpDrive extends LinearOpMode {
         telemetry.addLine("GAMEPAD 2: mechanisms only");
         telemetry.addLine("GP2 RT/LT: intake forward/reverse");
         telemetry.addLine("GP2 D-pad Up/Down: lift raise/lower");
+        telemetry.addLine("GP2 Y: lift HIGH -> open claw");
         telemetry.addLine("GP2 LB/RB: claw close/open");
-        telemetry.addLine("GP2 A: 270 servo 180 deg -> 2 sec -> reset");
+        telemetry.addLine("GP2 A: 270 servo 180 deg -> 1 sec -> reset");
         telemetry.update();
 
         waitForStart();
@@ -267,26 +273,59 @@ public final class TeleOpDrive extends LinearOpMode {
             intake.setPower(intakePower);
 
             // =========================================================
-            // GAMEPAD 2 - MANUAL LIFT TEST CONTROL
+            // GAMEPAD 2 - AUTOMATIC HIGH LIFT SEQUENCE
+            // Y = close claw -> move to HIGH -> open claw at target.
+            // D-pad lift input cancels automatic control immediately.
             // =========================================================
-            // Do NOT call lift.update() while using the raw manual test behavior.
+
+            boolean highYNow = gamepad2.y;
+            boolean highYPressed = highYNow && !previousHighY;
 
             boolean raiseLift = gamepad2.dpad_up;
             boolean lowerLift = gamepad2.dpad_down;
 
-            if (raiseLift && !lowerLift) {
-                lift.raise();
-            } else if (lowerLift && !raiseLift) {
-                lift.lower();
-            } else {
-                lift.stop();
+            if (highYPressed && lift.isHomed()) {
+                claw.close();
+                lift.moveHigh();
+                autoHighActive = true;
+                autoHighClawOpened = false;
             }
+
+            if ((raiseLift || lowerLift) && autoHighActive) {
+                autoHighActive = false;
+                autoHighClawOpened = false;
+            }
+
+            if (autoHighActive) {
+                // PID control must update every loop while moving to/holding HIGH.
+                lift.update();
+
+                if (lift.atTarget() && !autoHighClawOpened) {
+                    claw.open();
+                    autoHighClawOpened = true;
+                }
+            } else {
+                // Raw manual lift behavior from LiftTestTeleop.
+                if (raiseLift && !lowerLift) {
+                    lift.raise();
+                } else if (lowerLift && !raiseLift) {
+                    lift.lower();
+                } else {
+                    lift.stop();
+                }
+            }
+
+            previousHighY = highYNow;
 
             // =========================================================
             // GAMEPAD 2 - CLAW CONTROL
+            // While the automatic lift is still traveling, keep the claw closed.
+            // After it opens at HIGH, the bumpers can override it normally.
             // =========================================================
 
-            if (gamepad2.left_bumper) {
+            if (autoHighActive && !autoHighClawOpened) {
+                claw.close();
+            } else if (gamepad2.left_bumper) {
                 claw.close();
             } else if (gamepad2.right_bumper) {
                 claw.open();
@@ -475,9 +514,17 @@ public final class TeleOpDrive extends LinearOpMode {
             telemetry.addData("Intake Velocity", "%.1f", intake.getVelocity());
 
             telemetry.addData("Lift Encoder", lift.getCurrentPosition());
+            telemetry.addData("Lift Target", lift.getTargetPosition());
+            telemetry.addData("Lift Error", lift.getError());
             telemetry.addData("Lift Height (%)", "%.1f", lift.getHeightFraction() * 100.0);
             telemetry.addData("Lift Homed", lift.isHomed());
             telemetry.addData("Magnetic Home Switch", lift.isHomeLimitPressed());
+            telemetry.addData("Auto High", autoHighActive);
+            telemetry.addData("High Claw Opened", autoHighClawOpened);
+
+            if (highYPressed && !lift.isHomed()) {
+                telemetry.addLine("GP2 Y IGNORED: home/calibrate lift first");
+            }
 
             if (lowerLift && lift.isHomeLimitPressed()) {
                 telemetry.addLine("LIFT LOWER BLOCKED: home switch is pressed");
