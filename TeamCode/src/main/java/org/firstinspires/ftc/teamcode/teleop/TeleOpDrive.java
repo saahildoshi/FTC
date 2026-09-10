@@ -10,6 +10,7 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
@@ -32,6 +33,18 @@ public final class TeleOpDrive extends LinearOpMode {
     public static double SERVO_270_OPEN_180_POSITION = 2.0 / 3.0;
     public static double SERVO_270_HOLD_SECONDS = 1.0;
 
+    /**
+     * Compares the actual motor controller and port number, not just Java object
+     * identity or configuration name. This catches accidental aliases in the
+     * Robot Controller configuration.
+     */
+    private static boolean sameMotorPort(DcMotorEx first, DcMotorEx second) {
+        return first != null
+                && second != null
+                && first.getController() == second.getController()
+                && first.getPortNumber() == second.getPortNumber();
+    }
+
     @Override
     public void runOpMode() throws InterruptedException {
 
@@ -49,9 +62,33 @@ public final class TeleOpDrive extends LinearOpMode {
         ClawSubsystem claw = new ClawSubsystem(robot);
         Servo servo270 = robot.servo270;
 
-        // Direction is configured here, but the servo is intentionally NOT moved
-        // during init. This keeps TeleOp startup from creating unnecessary servo load.
         servo270.setDirection(Servo.Direction.REVERSE);
+
+        // Establish a known safe motor state once during initialization.
+        intake.stop();
+        lift.stop();
+
+        // Check whether the intake has accidentally been assigned to the same
+        // physical motor port as another subsystem.
+        final boolean intakeLiftConflict =
+                sameMotorPort(robot.intake, robot.leftLift);
+        final boolean intakeLeftFrontConflict =
+                sameMotorPort(robot.intake, robot.leftFront);
+        final boolean intakeLeftBackConflict =
+                sameMotorPort(robot.intake, robot.leftBack);
+        final boolean intakeRightFrontConflict =
+                sameMotorPort(robot.intake, robot.rightFront);
+        final boolean intakeRightBackConflict =
+                sameMotorPort(robot.intake, robot.rightBack);
+
+        final boolean intakeDriveConflict =
+                intakeLeftFrontConflict
+                        || intakeLeftBackConflict
+                        || intakeRightFrontConflict
+                        || intakeRightBackConflict;
+
+        final boolean intakePortConflict =
+                intakeLiftConflict || intakeDriveConflict;
 
         telemetry = new MultipleTelemetry(
                 telemetry,
@@ -102,6 +139,12 @@ public final class TeleOpDrive extends LinearOpMode {
         boolean autoHighActive = false;
         boolean autoHighClawOpened = false;
 
+        // IMPORTANT: This remembers whether manual lift control was active last
+        // loop. We only send lift.stop() ONCE when manual movement is released.
+        // The old TeleOp sent lift.stop() every loop while idle, which could
+        // overwrite the intake if the two names share a motor port.
+        boolean manualLiftWasActive = false;
+
         long previousLoopTimeNs;
         double filteredLoopHz = 0.0;
 
@@ -114,6 +157,19 @@ public final class TeleOpDrive extends LinearOpMode {
         telemetry.addLine("GP2 Y: lift HIGH -> open claw");
         telemetry.addLine("GP2 LB/RB: claw close/open");
         telemetry.addLine("GP2 A: 270 servo 180 deg -> 1 sec -> reset");
+
+        if (intakePortConflict) {
+            telemetry.addLine("***************************************");
+            telemetry.addLine("WARNING: INTAKE MOTOR PORT CONFLICT");
+            telemetry.addData("Intake shares Lift port", intakeLiftConflict);
+            telemetry.addData("Intake shares Left Front", intakeLeftFrontConflict);
+            telemetry.addData("Intake shares Left Back", intakeLeftBackConflict);
+            telemetry.addData("Intake shares Right Front", intakeRightFrontConflict);
+            telemetry.addData("Intake shares Right Back", intakeRightBackConflict);
+            telemetry.addLine("CHECK ROBOT CONTROLLER CONFIGURATION");
+            telemetry.addLine("***************************************");
+        }
+
         telemetry.update();
 
         waitForStart();
@@ -198,48 +254,27 @@ public final class TeleOpDrive extends LinearOpMode {
             previousX = xPressed;
 
             // =========================================================
-            // GAMEPAD 2 - INTAKE
+            // GAMEPAD 2 - LIFT
             // =========================================================
-            // X/B are digital diagnostic controls. The triggers remain enabled.
-            // Digital buttons get priority so they completely bypass trigger input.
-
-            double commandedIntakePower = 0.0;
-            String intakeCommandSource = "STOP";
-
-            if (gamepad2.x) {
-                commandedIntakePower = Math.abs(INTAKE_POWER);
-                intakeCommandSource = "X FORWARD";
-            } else if (gamepad2.b) {
-                commandedIntakePower = -Math.abs(INTAKE_POWER);
-                intakeCommandSource = "B REVERSE";
-            } else if (gamepad2.right_trigger > 0.10) {
-                commandedIntakePower = Math.abs(INTAKE_POWER);
-                intakeCommandSource = "RIGHT TRIGGER";
-            } else if (gamepad2.left_trigger > 0.10) {
-                commandedIntakePower = -Math.abs(INTAKE_POWER);
-                intakeCommandSource = "LEFT TRIGGER";
-            }
-
-            intake.setPower(commandedIntakePower);
-
-            // =========================================================
-            // GAMEPAD 2 - AUTOMATIC HIGH LIFT
-            // =========================================================
+            // Process the lift BEFORE the intake. This ensures an idle/released
+            // lift cannot overwrite the intake command later in this same loop.
 
             boolean highYNow = gamepad2.y;
             boolean highYPressed = highYNow && !previousHighY;
 
             boolean raiseLift = gamepad2.dpad_up;
             boolean lowerLift = gamepad2.dpad_down;
+            boolean manualLiftActive = raiseLift ^ lowerLift;
 
             if (highYPressed && lift.isHomed()) {
                 claw.close();
                 lift.moveHigh();
                 autoHighActive = true;
                 autoHighClawOpened = false;
+                manualLiftWasActive = false;
             }
 
-            if ((raiseLift || lowerLift) && autoHighActive) {
+            if (manualLiftActive && autoHighActive) {
                 autoHighActive = false;
                 autoHighClawOpened = false;
             }
@@ -251,14 +286,19 @@ public final class TeleOpDrive extends LinearOpMode {
                     claw.open();
                     autoHighClawOpened = true;
                 }
+
+                manualLiftWasActive = false;
             } else {
                 if (raiseLift && !lowerLift) {
                     lift.raise();
                 } else if (lowerLift && !raiseLift) {
                     lift.lower();
-                } else {
+                } else if (manualLiftWasActive) {
+                    // Stop only once on the transition from manual movement to idle.
                     lift.stop();
                 }
+
+                manualLiftWasActive = manualLiftActive;
             }
 
             previousHighY = highYNow;
@@ -299,6 +339,31 @@ public final class TeleOpDrive extends LinearOpMode {
             }
 
             previousServoA = servoANow;
+
+            // =========================================================
+            // GAMEPAD 2 - INTAKE
+            // =========================================================
+            // This is intentionally processed AFTER the lift so an idle-lift stop
+            // command cannot cancel the intake command in the same loop.
+
+            double commandedIntakePower = 0.0;
+            String intakeCommandSource = "STOP";
+
+            if (gamepad2.x) {
+                commandedIntakePower = Math.abs(INTAKE_POWER);
+                intakeCommandSource = "X FORWARD";
+            } else if (gamepad2.b) {
+                commandedIntakePower = -Math.abs(INTAKE_POWER);
+                intakeCommandSource = "B REVERSE";
+            } else if (gamepad2.right_trigger > 0.10) {
+                commandedIntakePower = Math.abs(INTAKE_POWER);
+                intakeCommandSource = "RIGHT TRIGGER";
+            } else if (gamepad2.left_trigger > 0.10) {
+                commandedIntakePower = -Math.abs(INTAKE_POWER);
+                intakeCommandSource = "LEFT TRIGGER";
+            }
+
+            intake.setPower(commandedIntakePower);
 
             // =========================================================
             // DRIVE LOCALIZATION / INPUT
@@ -410,6 +475,15 @@ public final class TeleOpDrive extends LinearOpMode {
             // =========================================================
             // TELEMETRY
             // =========================================================
+
+            if (intakePortConflict) {
+                telemetry.addLine("*** INTAKE MOTOR PORT CONFLICT DETECTED ***");
+                telemetry.addData("Shares Lift Motor", intakeLiftConflict);
+                telemetry.addData("Shares Left Front", intakeLeftFrontConflict);
+                telemetry.addData("Shares Left Back", intakeLeftBackConflict);
+                telemetry.addData("Shares Right Front", intakeRightFrontConflict);
+                telemetry.addData("Shares Right Back", intakeRightBackConflict);
+            }
 
             telemetry.addLine("=== GAMEPAD 1 / DRIVE ===");
             telemetry.addData(
