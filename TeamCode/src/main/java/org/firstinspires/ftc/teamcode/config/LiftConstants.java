@@ -45,10 +45,10 @@ public final class LiftConstants {
     public static int HOME_TICKS = 0;
     public static int LOW_TICKS = 500;
     public static int MID_TICKS = 1100;
-    public static int HIGH_TICKS = 1800;
-    public static int MAX_TICKS = 2100;
+    public static int HIGH_TICKS = 3300;
+    public static int MAX_TICKS = 5000;
 
-    public static int TOLERANCE_TICKS = 25;
+    public static int TOLERANCE_TICKS = 60;
 
     // Below this height, gravity compensation is disabled so the motor does not
     // push against the bottom of the mechanism.
