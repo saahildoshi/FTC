@@ -18,30 +18,6 @@ import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.LiftSubsystem;
 
-/**
- * COMPETITION TELEOP
- *
- * GAMEPAD 1 = DRIVETRAIN ONLY
- * - Left stick: forward/back + strafe
- * - Right stick X: rotate
- * - A: toggle slow mode
- * - Y: toggle robot-centric / field-centric
- * - X: Road Runner return to (0, 0, 0)
- * - OPTIONS/START: reset heading
- *
- * GAMEPAD 2 = SUBSYSTEMS ONLY
- * - Right trigger: intake forward
- * - Left trigger: intake reverse
- * - D-pad Up: manually raise lift
- * - D-pad Down: manually lower lift
- * - Y: automatically move lift to HIGH, then open claw
- * - Left bumper: close claw
- * - Right bumper: open claw
- * - A: move 270 servo to about 180 degrees for 1 second, then reset
- *
- * The automatic lift sequence and 270 servo sequence are non-blocking so the
- * drivetrain and other subsystem controls continue updating while they run.
- */
 @Config
 @TeleOp(name = "Mecanum Drive (Road Runner 1.0)", group = "TeleOp")
 public final class TeleOpDrive extends LinearOpMode {
@@ -50,10 +26,8 @@ public final class TeleOpDrive extends LinearOpMode {
             new Vector2d(0.0, 0.0),
             Rotation2d.exp(0.0));
 
-    // Fixed to the same value used by the working IntakeMotorTest.
     private static final double INTAKE_POWER = 0.50;
 
-    // 270 servo positions from Servo270Test.
     public static double SERVO_270_START_POSITION = 0.0;
     public static double SERVO_270_OPEN_180_POSITION = 2.0 / 3.0;
     public static double SERVO_270_HOLD_SECONDS = 1.0;
@@ -75,16 +49,16 @@ public final class TeleOpDrive extends LinearOpMode {
         ClawSubsystem claw = new ClawSubsystem(robot);
         Servo servo270 = robot.servo270;
 
+        // Direction is configured here, but the servo is intentionally NOT moved
+        // during init. This keeps TeleOp startup from creating unnecessary servo load.
         servo270.setDirection(Servo.Direction.REVERSE);
-        servo270.setPosition(SERVO_270_START_POSITION);
-        claw.close();
 
         telemetry = new MultipleTelemetry(
                 telemetry,
                 FtcDashboard.getInstance().getTelemetry());
 
         // =========================================================
-        // GAMEPAD 1 - DRIVE CONTROLS
+        // GAMEPAD 1 - DRIVE STATE
         // =========================================================
 
         boolean slowMode = false;
@@ -94,8 +68,6 @@ public final class TeleOpDrive extends LinearOpMode {
         boolean previousY = false;
         boolean previousHeadingReset = false;
         boolean previousX = false;
-
-        // ---------------- Heading Hold PID ----------------
 
         boolean headingHold = false;
         double targetHeading = 0.0;
@@ -110,8 +82,6 @@ public final class TeleOpDrive extends LinearOpMode {
 
         long lastManualRotationTime = System.nanoTime();
         final double HEADING_HOLD_DELAY = 0.8;
-
-        // ---------------- Acceleration Limiting ----------------
 
         double currentX = 0.0;
         double currentY = 0.0;
@@ -132,16 +102,15 @@ public final class TeleOpDrive extends LinearOpMode {
         boolean autoHighActive = false;
         boolean autoHighClawOpened = false;
 
-        // ---------------- Loop Timing ----------------
-
         long previousLoopTimeNs;
         double filteredLoopHz = 0.0;
 
         telemetry.addLine("TeleOp initialized");
-        telemetry.addLine("GAMEPAD 1: drive only");
-        telemetry.addLine("GAMEPAD 2: mechanisms only");
-        telemetry.addLine("GP2 RT/LT: intake forward/reverse");
-        telemetry.addLine("GP2 D-pad Up/Down: lift raise/lower");
+        telemetry.addLine("GAMEPAD 1: drivetrain");
+        telemetry.addLine("GAMEPAD 2: mechanisms");
+        telemetry.addLine("GP2 RT or X: intake forward");
+        telemetry.addLine("GP2 LT or B: intake reverse");
+        telemetry.addLine("GP2 D-pad Up/Down: lift manual");
         telemetry.addLine("GP2 Y: lift HIGH -> open claw");
         telemetry.addLine("GP2 LB/RB: claw close/open");
         telemetry.addLine("GP2 A: 270 servo 180 deg -> 1 sec -> reset");
@@ -153,7 +122,6 @@ public final class TeleOpDrive extends LinearOpMode {
             intake.stop();
             lift.stop();
             drive.stop();
-            servo270.setPosition(SERVO_270_START_POSITION);
             return;
         }
 
@@ -166,83 +134,55 @@ public final class TeleOpDrive extends LinearOpMode {
             // =========================================================
 
             long loopTimeNs = System.nanoTime();
-
             double loopPeriodSeconds =
                     (loopTimeNs - previousLoopTimeNs) * 1e-9;
-
             previousLoopTimeNs = loopTimeNs;
 
             if (loopPeriodSeconds > 0.0) {
                 double instantaneousLoopHz = 1.0 / loopPeriodSeconds;
-
-                filteredLoopHz =
-                        filteredLoopHz == 0.0
-                                ? instantaneousLoopHz
-                                : 0.90 * filteredLoopHz
-                                + 0.10 * instantaneousLoopHz;
+                filteredLoopHz = filteredLoopHz == 0.0
+                        ? instantaneousLoopHz
+                        : 0.90 * filteredLoopHz + 0.10 * instantaneousLoopHz;
             }
 
             // =========================================================
-            // GAMEPAD 1 - FIELD / ROBOT CENTRIC TOGGLE
+            // GAMEPAD 1 - DRIVE BUTTONS
             // =========================================================
 
             boolean yPressed = gamepad1.y;
-
             if (yPressed && !previousY) {
                 fieldCentric = !fieldCentric;
             }
-
             previousY = yPressed;
 
-            // =========================================================
-            // GAMEPAD 1 - HEADING RESET
-            // =========================================================
-
-            boolean headingResetPressed =
-                    gamepad1.options || gamepad1.start;
-
+            boolean headingResetPressed = gamepad1.options || gamepad1.start;
             if (headingResetPressed && !previousHeadingReset) {
                 drive.resetHeading();
-
                 headingHold = false;
                 headingIntegral = 0.0;
                 previousHeadingError = 0.0;
             }
-
             previousHeadingReset = headingResetPressed;
 
-            // =========================================================
-            // GAMEPAD 1 - SLOW MODE
-            // =========================================================
-
             boolean aPressed = gamepad1.a;
-
             if (aPressed && !previousA) {
                 slowMode = !slowMode;
             }
-
             previousA = aPressed;
 
-            // =========================================================
-            // GAMEPAD 1 - RETURN HOME
-            // X = (0, 0, 0)
-            // =========================================================
-
             boolean xPressed = gamepad1.x;
-
             if (xPressed && !previousX) {
                 telemetry.addLine("Returning drivetrain home...");
                 telemetry.update();
 
                 Pose2d currentPose = drive.updateAndGetPose();
 
-                Action returnHome =
-                        drive.roadRunner()
-                                .actionBuilder(currentPose)
-                                .strafeToLinearHeading(
-                                        new Vector2d(0, 0),
-                                        Math.toRadians(0))
-                                .build();
+                Action returnHome = drive.roadRunner()
+                        .actionBuilder(currentPose)
+                        .strafeToLinearHeading(
+                                new Vector2d(0, 0),
+                                Math.toRadians(0))
+                        .build();
 
                 Actions.runBlocking(returnHome);
 
@@ -255,28 +195,35 @@ public final class TeleOpDrive extends LinearOpMode {
                 currentY = 0.0;
                 currentRotation = 0.0;
             }
-
             previousX = xPressed;
 
             // =========================================================
-            // GAMEPAD 2 - INTAKE CONTROL
-            // Exact working IntakeMotorTest logic, moved to gamepad2.
+            // GAMEPAD 2 - INTAKE
             // =========================================================
+            // X/B are digital diagnostic controls. The triggers remain enabled.
+            // Digital buttons get priority so they completely bypass trigger input.
 
             double commandedIntakePower = 0.0;
+            String intakeCommandSource = "STOP";
 
-            if (gamepad2.right_trigger > 0.10) {
+            if (gamepad2.x) {
                 commandedIntakePower = Math.abs(INTAKE_POWER);
+                intakeCommandSource = "X FORWARD";
+            } else if (gamepad2.b) {
+                commandedIntakePower = -Math.abs(INTAKE_POWER);
+                intakeCommandSource = "B REVERSE";
+            } else if (gamepad2.right_trigger > 0.10) {
+                commandedIntakePower = Math.abs(INTAKE_POWER);
+                intakeCommandSource = "RIGHT TRIGGER";
             } else if (gamepad2.left_trigger > 0.10) {
                 commandedIntakePower = -Math.abs(INTAKE_POWER);
+                intakeCommandSource = "LEFT TRIGGER";
             }
 
             intake.setPower(commandedIntakePower);
 
             // =========================================================
-            // GAMEPAD 2 - AUTOMATIC HIGH LIFT SEQUENCE
-            // Y = close claw -> move to HIGH -> open claw at target.
-            // D-pad lift input cancels automatic control immediately.
+            // GAMEPAD 2 - AUTOMATIC HIGH LIFT
             // =========================================================
 
             boolean highYNow = gamepad2.y;
@@ -298,7 +245,6 @@ public final class TeleOpDrive extends LinearOpMode {
             }
 
             if (autoHighActive) {
-                // PID control must update every loop while moving to/holding HIGH.
                 lift.update();
 
                 if (lift.atTarget() && !autoHighClawOpened) {
@@ -306,7 +252,6 @@ public final class TeleOpDrive extends LinearOpMode {
                     autoHighClawOpened = true;
                 }
             } else {
-                // Raw manual lift behavior from LiftTestTeleop.
                 if (raiseLift && !lowerLift) {
                     lift.raise();
                 } else if (lowerLift && !raiseLift) {
@@ -319,9 +264,7 @@ public final class TeleOpDrive extends LinearOpMode {
             previousHighY = highYNow;
 
             // =========================================================
-            // GAMEPAD 2 - CLAW CONTROL
-            // While the automatic lift is still traveling, keep the claw closed.
-            // After it opens at HIGH, the bumpers can override it normally.
+            // GAMEPAD 2 - CLAW
             // =========================================================
 
             if (autoHighActive && !autoHighClawOpened) {
@@ -333,8 +276,7 @@ public final class TeleOpDrive extends LinearOpMode {
             }
 
             // =========================================================
-            // GAMEPAD 2 - 270 SERVO TEST CONTROL
-            // Non-blocking version of Servo270Test.
+            // GAMEPAD 2 - 270 SERVO
             // =========================================================
 
             boolean servoANow = gamepad2.a;
@@ -359,22 +301,14 @@ public final class TeleOpDrive extends LinearOpMode {
             previousServoA = servoANow;
 
             // =========================================================
-            // UPDATE DRIVE LOCALIZATION
+            // DRIVE LOCALIZATION / INPUT
             // =========================================================
 
             Pose2d pose = drive.updateAndGetPose();
 
-            // =========================================================
-            // GAMEPAD 1 - RAW JOYSTICK INPUT
-            // =========================================================
-
             double targetX = -gamepad1.left_stick_y;
             double targetY = -gamepad1.left_stick_x;
             double targetRotation = -gamepad1.right_stick_x;
-
-            // =========================================================
-            // DRIVE ACCELERATION LIMITING
-            // =========================================================
 
             double maxDriveChange = DRIVE_ACCEL * loopPeriodSeconds;
             double maxRotationChange = ROTATION_ACCEL * loopPeriodSeconds;
@@ -392,14 +326,13 @@ public final class TeleOpDrive extends LinearOpMode {
                     Math.min(maxRotationChange, targetRotation - currentRotation));
 
             // =========================================================
-            // ROTATION / HEADING HOLD
+            // HEADING HOLD
             // =========================================================
 
             boolean manuallyRotating = Math.abs(targetRotation) > 0.05;
 
             if (manuallyRotating) {
                 lastManualRotationTime = System.nanoTime();
-
                 headingHold = false;
                 headingIntegral = 0.0;
                 previousHeadingError = 0.0;
@@ -414,16 +347,11 @@ public final class TeleOpDrive extends LinearOpMode {
                     && rotationStopped
                     && !headingHold
                     && timeSinceManualRotation >= HEADING_HOLD_DELAY) {
-
                 headingHold = true;
                 targetHeading = pose.heading.toDouble();
                 headingIntegral = 0.0;
                 previousHeadingError = 0.0;
             }
-
-            // =========================================================
-            // HEADING PID
-            // =========================================================
 
             double headingCorrection = 0.0;
 
@@ -445,7 +373,6 @@ public final class TeleOpDrive extends LinearOpMode {
 
                 if (dt > 0.0 && dt < 0.1) {
                     headingIntegral += headingError * dt;
-
                     double derivative =
                             (headingError - previousHeadingError) / dt;
 
@@ -467,22 +394,17 @@ public final class TeleOpDrive extends LinearOpMode {
 
             double speedMultiplier = slowMode ? 0.4 : 1.0;
 
-            double rotationPower;
-
-            if (manuallyRotating || !headingHold) {
-                rotationPower = currentRotation * speedMultiplier;
-            } else {
-                rotationPower = headingCorrection;
-            }
+            double rotationPower = (manuallyRotating || !headingHold)
+                    ? currentRotation * speedMultiplier
+                    : headingCorrection;
 
             double outputX = currentX * speedMultiplier;
             double outputY = currentY * speedMultiplier;
-            double outputRotation = rotationPower;
 
             if (fieldCentric) {
-                drive.fieldCentric(outputX, outputY, outputRotation);
+                drive.fieldCentric(outputX, outputY, rotationPower);
             } else {
-                drive.robotCentric(outputX, outputY, outputRotation);
+                drive.robotCentric(outputX, outputY, rotationPower);
             }
 
             // =========================================================
@@ -500,32 +422,31 @@ public final class TeleOpDrive extends LinearOpMode {
                     "Heading (deg)",
                     "%.1f",
                     Math.toDegrees(pose.heading.toDouble()));
-            telemetry.addData(
-                    "Target Heading (deg)",
-                    "%.1f",
-                    Math.toDegrees(targetHeading));
             telemetry.addData("Heading Hold", headingHold);
-            telemetry.addData("Drive X", "%.2f", currentX);
-            telemetry.addData("Drive Y", "%.2f", currentY);
-            telemetry.addData("Rotation", "%.2f", currentRotation);
 
-            telemetry.addLine("=== GAMEPAD 2 / SUBSYSTEMS ===");
-            telemetry.addData("GP2 Right Trigger", "%.2f", gamepad2.right_trigger);
-            telemetry.addData("GP2 Left Trigger", "%.2f", gamepad2.left_trigger);
-            telemetry.addData("Intake Fixed Power", "%.2f", INTAKE_POWER);
-            telemetry.addData("Intake Command", "%.2f", commandedIntakePower);
+            telemetry.addLine("=== GAMEPAD 2 / INTAKE ===");
+            telemetry.addData("GP2 Right Trigger", "%.3f", gamepad2.right_trigger);
+            telemetry.addData("GP2 Left Trigger", "%.3f", gamepad2.left_trigger);
+            telemetry.addData("GP2 X", gamepad2.x);
+            telemetry.addData("GP2 B", gamepad2.b);
+            telemetry.addData("Intake Source", intakeCommandSource);
+            telemetry.addData("Commanded Intake Power", "%.2f", commandedIntakePower);
             telemetry.addData("Actual Intake Motor Power", "%.2f", intake.getPower());
             telemetry.addData("Intake Encoder", intake.getCurrentPosition());
             telemetry.addData("Intake Velocity", "%.1f", intake.getVelocity());
+            telemetry.addData("Battery Voltage", "%.2f V", robot.voltageSensor.getVoltage());
 
+            telemetry.addLine("=== GAMEPAD 2 / OTHER SUBSYSTEMS ===");
             telemetry.addData("Lift Encoder", lift.getCurrentPosition());
             telemetry.addData("Lift Target", lift.getTargetPosition());
-            telemetry.addData("Lift Error", lift.getError());
-            telemetry.addData("Lift Height (%)", "%.1f", lift.getHeightFraction() * 100.0);
             telemetry.addData("Lift Homed", lift.isHomed());
             telemetry.addData("Magnetic Home Switch", lift.isHomeLimitPressed());
             telemetry.addData("Auto High", autoHighActive);
-            telemetry.addData("High Claw Opened", autoHighClawOpened);
+            telemetry.addData("Claw Position", "%.3f", claw.getPosition());
+            telemetry.addData("270 Servo Position", "%.3f", servo270.getPosition());
+            telemetry.addData(
+                    "270 Servo Cycle",
+                    servo270CycleActive ? "OPEN / HOLDING" : "READY");
 
             if (highYPressed && !lift.isHomed()) {
                 telemetry.addLine("GP2 Y IGNORED: home/calibrate lift first");
@@ -535,20 +456,12 @@ public final class TeleOpDrive extends LinearOpMode {
                 telemetry.addLine("LIFT LOWER BLOCKED: home switch is pressed");
             }
 
-            telemetry.addData("Claw Position", "%.3f", claw.getPosition());
-            telemetry.addData("270 Servo Position", "%.3f", servo270.getPosition());
-            telemetry.addData(
-                    "270 Servo Cycle",
-                    servo270CycleActive ? "OPEN / HOLDING" : "READY");
-
             telemetry.addData("Loop rate (Hz)", "%.1f", filteredLoopHz);
             telemetry.update();
         }
 
         intake.stop();
         lift.stop();
-        claw.close();
-        servo270.setPosition(SERVO_270_START_POSITION);
         drive.stop();
     }
 }
