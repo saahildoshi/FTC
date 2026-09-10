@@ -45,11 +45,11 @@ public final class RobotConstants {
         public static final int HOME_TICKS = 0;
         public static final int LOW_TICKS = 500;
         public static final int MID_TICKS = 1100;
-        public static final int HIGH_TICKS = 1800;
-        public static final int MAX_TICKS = 2100;
+        public static final int HIGH_TICKS = 3300;
+        public static final int MAX_TICKS = 5000;
         public static final double MOVE_POWER = 0.75;
         public static final double MANUAL_POWER = 0.75;
-        public static final int TOLERANCE_TICKS = 25;
+        public static final int TOLERANCE_TICKS = 60;
 
         private Lift() { }
     }
