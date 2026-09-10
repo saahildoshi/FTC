@@ -154,9 +154,9 @@ public final class MechanismOptions {
     public static final class Claw {
         private final Servo clawServo;
 
-        // FABRICATED positions -- find safe values on the physical mechanism.
+        // Standard 180-degree servo normalization: 5 degrees = 5/180.
         public static final double OPEN_POSITION = 0.70;
-        public static final double CLOSED_POSITION = 0.30;
+        public static final double CLOSED_POSITION = 5.0 / 180.0;
 
         public Claw(HardwareMap hardwareMap) {
             clawServo = hardwareMap.get(Servo.class, "claw");
