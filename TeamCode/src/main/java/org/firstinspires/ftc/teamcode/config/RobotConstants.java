@@ -56,7 +56,8 @@ public final class RobotConstants {
 
     public static final class Claw {
         public static final double OPEN_POSITION = 0.60;
-        public static final double CLOSED_POSITION = 0.0;
+        // Standard 180-degree servo normalization: 5 degrees = 5/180.
+        public static final double CLOSED_POSITION = 5.0 / 180.0;
 
         private Claw() { }
     }
