@@ -59,7 +59,7 @@ public final class LiftConstants {
     // ----------------------------------------------------------------------
     // The team's active servo is configured as "claw". These values control the
     // open/closed arm behavior used by the lift finite-state machine.
-    // Standard 180-degree servo normalization: 5 degrees = 5/180.
-    public static double CLAW_CLOSED_POSITION = 5.0 / 180.0;
-    public static double CLAW_OPEN_POSITION = 0.60;
+    // Standard 180-degree servo normalization.
+    public static double CLAW_CLOSED_POSITION = 15.0 / 180.0;
+    public static double CLAW_OPEN_POSITION = 50.0 / 180.0;
 }
