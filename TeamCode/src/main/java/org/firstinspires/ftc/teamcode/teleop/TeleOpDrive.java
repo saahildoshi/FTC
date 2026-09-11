@@ -37,7 +37,7 @@ import org.firstinspires.ftc.teamcode.subsystems.LiftSubsystem;
  * - Y: automatically move lift to HIGH, then open claw
  * - Left bumper: close claw
  * - Right bumper: open claw
- * - A: move 270 servo to about 180 degrees for 1 second, then reset
+ * - A: move 270 servo to 0.60 for 1 second, then return to 0.15
  *
  * The automatic lift sequence and 270 servo sequence are non-blocking so the
  * drivetrain and other subsystem controls continue updating while they run.
@@ -53,9 +53,10 @@ public final class TeleOpDrive extends LinearOpMode {
     // Dashboard-adjustable intake power, matching IntakeMotorTest behavior.
     public static double INTAKE_TEST_POWER = 0.50;
 
-    // 270 servo positions from Servo270Test.
-    public static double SERVO_270_START_POSITION = 0.0;
-    public static double SERVO_270_OPEN_180_POSITION = 2.0 / 3.0;
+    // Calibrated FTC Servo commands. Servo.setPosition() uses a normalized
+    // [0, 1] command rather than a physical angle in degrees.
+    public static double SERVO_270_ZERO_POSITION = 0.15;
+    public static double SERVO_270_OPEN_POSITION = 0.60;
     public static double SERVO_270_HOLD_SECONDS = 1.0;
 
     @Override
@@ -76,7 +77,7 @@ public final class TeleOpDrive extends LinearOpMode {
         Servo servo270 = robot.servo270;
 
         servo270.setDirection(Servo.Direction.REVERSE);
-        servo270.setPosition(SERVO_270_START_POSITION);
+        servo270.setPosition(SERVO_270_ZERO_POSITION);
         claw.close();
 
         telemetry = new MultipleTelemetry(
@@ -144,7 +145,7 @@ public final class TeleOpDrive extends LinearOpMode {
         telemetry.addLine("GP2 D-pad Up/Down: lift raise/lower");
         telemetry.addLine("GP2 Y: lift HIGH -> open claw");
         telemetry.addLine("GP2 LB/RB: claw close/open");
-        telemetry.addLine("GP2 A: 270 servo 180 deg -> 1 sec -> reset");
+        telemetry.addLine("GP2 A: 270 servo 0.60 -> 1 sec -> 0.15");
         telemetry.update();
 
         waitForStart();
@@ -153,7 +154,7 @@ public final class TeleOpDrive extends LinearOpMode {
             intake.stop();
             lift.stop();
             drive.stop();
-            servo270.setPosition(SERVO_270_START_POSITION);
+            servo270.setPosition(SERVO_270_ZERO_POSITION);
             return;
         }
 
@@ -340,7 +341,6 @@ public final class TeleOpDrive extends LinearOpMode {
             boolean servoAPressed = servoANow && !previousServoA;
 
             if (servoAPressed && !servo270CycleActive) {
-                servo270.setPosition(SERVO_270_OPEN_180_POSITION);
                 servo270OpenedTimeNs = System.nanoTime();
                 servo270CycleActive = true;
             }
@@ -350,10 +350,16 @@ public final class TeleOpDrive extends LinearOpMode {
                         (System.nanoTime() - servo270OpenedTimeNs) * 1e-9;
 
                 if (servoElapsedSeconds >= SERVO_270_HOLD_SECONDS) {
-                    servo270.setPosition(SERVO_270_START_POSITION);
                     servo270CycleActive = false;
                 }
             }
+
+            // Reassert the selected command every loop. This makes the zero
+            // position reliable and allows live Dashboard changes to take effect.
+            servo270.setPosition(
+                    servo270CycleActive
+                            ? SERVO_270_OPEN_POSITION
+                            : SERVO_270_ZERO_POSITION);
 
             previousServoA = servoANow;
 
@@ -532,9 +538,11 @@ public final class TeleOpDrive extends LinearOpMode {
 
             telemetry.addData("Claw Position", "%.3f", claw.getPosition());
             telemetry.addData("270 Servo Position", "%.3f", servo270.getPosition());
+            telemetry.addData("270 Servo Zero Setpoint", "%.3f", SERVO_270_ZERO_POSITION);
+            telemetry.addData("270 Servo Open Setpoint", "%.3f", SERVO_270_OPEN_POSITION);
             telemetry.addData(
                     "270 Servo Cycle",
-                    servo270CycleActive ? "OPEN / HOLDING" : "READY");
+                    servo270CycleActive ? "OPEN / HOLDING" : "ZERO / HOLDING");
 
             telemetry.addData("Loop rate (Hz)", "%.1f", filteredLoopHz);
             telemetry.update();
@@ -543,7 +551,7 @@ public final class TeleOpDrive extends LinearOpMode {
         intake.stop();
         lift.stop();
         claw.close();
-        servo270.setPosition(SERVO_270_START_POSITION);
+        servo270.setPosition(SERVO_270_ZERO_POSITION);
         drive.stop();
     }
 }

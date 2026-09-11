@@ -59,7 +59,7 @@ public final class LiftConstants {
     // ----------------------------------------------------------------------
     // The team's active servo is configured as "claw". These values mirror the
     // fixed competition positions in RobotConstants.Claw.
-    // Standard 180-degree servo normalization.
-    public static double CLAW_CLOSED_POSITION = 15.0 / 180.0;
-    public static double CLAW_OPEN_POSITION = 55.0 / 180.0;
+    // Calibrated FTC Servo commands in the normalized [0, 1] range.
+    public static double CLAW_CLOSED_POSITION = 0.15;
+    public static double CLAW_OPEN_POSITION = 0.60;
 }
