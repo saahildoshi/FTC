@@ -57,9 +57,9 @@ public final class LiftConstants {
     // ----------------------------------------------------------------------
     // ARM / CLAW SERVO POSITIONS
     // ----------------------------------------------------------------------
-    // The team's active servo is configured as "claw". These values control the
-    // open/closed arm behavior used by the lift finite-state machine.
+    // The team's active servo is configured as "claw". These values mirror the
+    // fixed competition positions in RobotConstants.Claw.
     // Standard 180-degree servo normalization.
     public static double CLAW_CLOSED_POSITION = 15.0 / 180.0;
-    public static double CLAW_OPEN_POSITION = 50.0 / 180.0;
+    public static double CLAW_OPEN_POSITION = 55.0 / 180.0;
 }
