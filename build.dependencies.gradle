@@ -4,6 +4,7 @@ repositories {
 }
 
 dependencies {
+<<<<<<< HEAD
     implementation 'org.firstinspires.ftc:Inspection:11.2.0'
     implementation 'org.firstinspires.ftc:Blocks:11.2.0'
     implementation 'org.firstinspires.ftc:RobotCore:11.2.0'
@@ -12,5 +13,15 @@ dependencies {
     implementation 'org.firstinspires.ftc:Hardware:11.2.0'
     implementation 'org.firstinspires.ftc:FtcCommon:11.2.0'
     implementation 'org.firstinspires.ftc:Vision:11.2.0'
+=======
+    implementation 'org.firstinspires.ftc:Inspection:12.0.0'
+    implementation 'org.firstinspires.ftc:Blocks:12.0.0'
+    implementation 'org.firstinspires.ftc:RobotCore:12.0.0'
+    implementation 'org.firstinspires.ftc:RobotServer:12.0.0'
+    implementation 'org.firstinspires.ftc:OnBotJava:12.0.0'
+    implementation 'org.firstinspires.ftc:Hardware:12.0.0'
+    implementation 'org.firstinspires.ftc:FtcCommon:12.0.0'
+    implementation 'org.firstinspires.ftc:Vision:12.0.0'
+>>>>>>> upstream/master
     implementation 'androidx.appcompat:appcompat:1.2.0'
 }
