@@ -23,7 +23,7 @@ import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 @TeleOp(name = "Intake Motor Test", group = "Testing")
 public final class IntakeMotorTest extends LinearOpMode {
 
-    public static double TEST_POWER = 0.50;
+    public static double TEST_POWER = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {

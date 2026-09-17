@@ -28,7 +28,7 @@ import javax.imageio.ImageIO;
  * The matching real autonomous is:
  * TeamCode/.../autonomous/SampleMiddleFieldAuto.java
  */
-public final class MeepMeepTesting {
+public final class MeepMeep1Hive {
 
     /**
      * MeepMeep 0.1.7 does not yet include a built-in BIOBUZZ background enum.
@@ -45,7 +45,7 @@ public final class MeepMeepTesting {
      * Keep the constructor private because this class is only a desktop entry
      * point; we never create a MeepMeepTesting object.
      */
-    private MeepMeepTesting() {
+    private MeepMeep1Hive() {
     }
 
     public static void main(String[] args) {
@@ -89,21 +89,16 @@ public final class MeepMeepTesting {
 
                         .waitSeconds(4)
                         // Smooth curved path to (18, 18).
-                        .strafeToLinearHeading(new Vector2d(-24,58), Math.toRadians(270))
+                        .strafeToLinearHeading(new Vector2d(36,12), Math.toRadians(180))
+                        .splineToConstantHeading(new Vector2d(58,24), Math.toRadians(10))
                         .waitSeconds(4)
                         .strafeToLinearHeading(new Vector2d(48, 12), Math.toRadians(0))
                         // Move in a straight line until X = 30 inches.
                         .strafeToConstantHeading(new Vector2d(62,12))
                         .waitSeconds(4)
                         // Translate the mecanum robot directly to (30, 6).
-                        .strafeToLinearHeading(new Vector2d(48, 24), Math.toRadians(180))
-                        .strafeTo(new Vector2d(58,24))
-                        .waitSeconds(4)
-                        .strafeToLinearHeading(new Vector2d(48, 12), Math.toRadians(0))
-                        .strafeToConstantHeading(new Vector2d(62,12))
-                        .waitSeconds(4)
+                        .strafeToConstantHeading(new Vector2d(48, 24))
                         .strafeTo(new Vector2d(48,56))
-
 
                         // Mechanism-only events are represented by pauses because
                         // MeepMeep does not simulate the real lift or claw.

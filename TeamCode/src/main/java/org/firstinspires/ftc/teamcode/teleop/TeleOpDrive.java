@@ -51,7 +51,7 @@ public final class TeleOpDrive extends LinearOpMode {
             Rotation2d.exp(0.0));
 
     // Dashboard-adjustable intake power, matching IntakeMotorTest behavior.
-    public static double INTAKE_TEST_POWER = 0.50;
+    public static double INTAKE_TEST_POWER = 1.0;
 
     // Calibrated FTC Servo commands. Servo.setPosition() uses a normalized
     // [0, 1] command rather than a physical angle in degrees.

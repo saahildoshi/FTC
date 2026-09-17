@@ -13,11 +13,14 @@ import org.firstinspires.ftc.teamcode.util.CustomPIDController;
 /**
  * ACTIVE SINGLE-MOTOR SWYFT LIFT SUBSYSTEM
  *
- * IMPORTANT HOME RULE:
- * The REV magnetic limit switch is the ONLY authority for the physical HOME
- * position. Encoder ticks do not determine whether the lift is physically home.
- * When the switch is pressed, the encoder is reset so all other lift positions
- * can still be measured from that known physical location.
+ * Features:
+ * - Custom PID controller
+ * - FTC Dashboard live tuning through LiftConstants
+ * - Gravity feedforward
+ * - REV magnetic switch homing
+ * - Automatic encoder zero at physical home
+ * - Software upper/lower limits
+ * - Non-blocking homing suitable for TeleOp FSMs and Road Runner Actions
  */
 public final class LiftSubsystem {
 
@@ -28,10 +31,8 @@ public final class LiftSubsystem {
 
     private int targetPosition = LiftConstants.HOME_TICKS;
 
-    // "homed" means the encoder has been calibrated from the physical switch.
-    // It does NOT mean the lift is currently sitting at home.
-    private boolean homed = false;
     private boolean homing = false;
+    private boolean homed = false;
     private boolean homingTimedOut = false;
     private boolean previousHomeState = false;
 
@@ -45,6 +46,8 @@ public final class LiftSubsystem {
 
         liftMotor.setDirection(DcMotor.Direction.FORWARD);
         liftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        // Custom PID controls motor power. The encoder is still readable in this mode.
         liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         pid = new CustomPIDController(
@@ -53,18 +56,19 @@ public final class LiftSubsystem {
                 LiftConstants.kD);
         pid.setTarget(LiftConstants.HOME_TICKS);
 
-        // If the lift starts while physically on the switch, that switch establishes
-        // home immediately and the encoder is calibrated from that physical position.
-        if (isAtHome()) {
+        // If the robot powers on while already sitting on the magnet, establish a
+        // valid physical zero immediately without moving the mechanism.
+        if (isHomeLimitPressed()) {
             resetEncoderAtHome();
             previousHomeState = true;
         }
     }
 
-    /** Must be called every active OpMode loop during automatic/PID control. */
+    /** Must be called every active OpMode loop. */
     public void update() {
-        boolean homePressed = isAtHome();
+        boolean homePressed = isHomeLimitPressed();
 
+        // Read live PID values every loop so Dashboard edits take effect immediately.
         pid.setPID(LiftConstants.kP, LiftConstants.kI, LiftConstants.kD);
 
         if (homing) {
@@ -73,8 +77,8 @@ public final class LiftSubsystem {
             return;
         }
 
-        // The physical switch is authoritative. Whenever the lift newly reaches
-        // the magnet, establish that exact location as encoder zero.
+        // Re-zero when the carriage physically arrives at home. Edge detection keeps
+        // the encoder from being reset continuously while sitting over the magnet.
         if (homePressed && !previousHomeState) {
             resetEncoderAtHome();
         }
@@ -95,18 +99,19 @@ public final class LiftSubsystem {
                 -Math.abs(LiftConstants.MAX_DOWN_POWER),
                 Math.abs(LiftConstants.MAX_UP_POWER));
 
-        // PHYSICAL HOME SAFETY:
-        // Do not allow negative/downward power while the magnetic switch is pressed.
-        // There is intentionally NO encoder-tick lower-limit check here.
+        // Physical home switch always wins over a downward command.
         if (homePressed && motorPower < 0.0) {
             motorPower = 0.0;
         }
 
-        // Encoder ticks are still useful for the upper software limit after the lift
-        // has been calibrated by the physical home switch.
+        // Software lower limit is trusted only after the lift has physically homed.
         if (homed
-                && currentPosition >= LiftConstants.MAX_TICKS
-                && motorPower > 0.0) {
+                && currentPosition <= LiftConstants.HOME_TICKS
+                && motorPower < 0.0) {
+            motorPower = 0.0;
+        }
+
+        if (currentPosition >= LiftConstants.MAX_TICKS && motorPower > 0.0) {
             motorPower = 0.0;
         }
 
@@ -114,20 +119,12 @@ public final class LiftSubsystem {
         previousHomeState = homePressed;
     }
 
-    /** Begin a non-blocking search for the physical REV magnetic home switch. */
+    /** Begin a non-blocking search for the REV magnetic home switch. */
     public void home() {
-        homingTimedOut = false;
-        pid.reset();
-
-        // If the switch is already pressed, we are physically home right now.
-        if (isAtHome()) {
-            resetEncoderAtHome();
-            homing = false;
-            return;
-        }
-
         homing = true;
+        homingTimedOut = false;
         homingTimer.reset();
+        pid.reset();
     }
 
     private void runHoming(boolean homePressed) {
@@ -155,10 +152,6 @@ public final class LiftSubsystem {
         liftMotor.setPower(motorPower);
     }
 
-    /**
-     * Called only when the magnetic switch establishes the physical HOME location.
-     * HOME_TICKS is simply the encoder coordinate assigned to that physical point.
-     */
     private void resetEncoderAtHome() {
         liftMotor.setPower(0.0);
         liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -184,7 +177,7 @@ public final class LiftSubsystem {
         pid.setTarget(targetPosition);
     }
 
-    /** Return to HOME by searching for the physical magnetic switch. */
+    /** Return to physical home using the magnetic switch rather than encoder-only zero. */
     public void moveHome() {
         home();
     }
@@ -210,7 +203,7 @@ public final class LiftSubsystem {
     }
 
     public int getHeightTicks() {
-        return getCurrentPosition();
+        return Math.max(LiftConstants.HOME_TICKS, getCurrentPosition());
     }
 
     public double getHeightFraction() {
@@ -218,12 +211,10 @@ public final class LiftSubsystem {
             return 0.0;
         }
 
-        return Math.max(
-                0.0,
-                Math.min(
-                        1.0,
-                        (double) (getCurrentPosition() - LiftConstants.HOME_TICKS)
-                                / (LiftConstants.MAX_TICKS - LiftConstants.HOME_TICKS)));
+        return Math.min(
+                1.0,
+                (double) (getHeightTicks() - LiftConstants.HOME_TICKS)
+                        / (LiftConstants.MAX_TICKS - LiftConstants.HOME_TICKS));
     }
 
     public double getError() {
@@ -235,27 +226,12 @@ public final class LiftSubsystem {
                 && Math.abs(getError()) < LiftConstants.TOLERANCE_TICKS;
     }
 
-    /**
-     * Manual encoder reset retained for compatibility. Physical homing should normally
-     * use home()/moveHome() so the magnetic switch establishes the zero correctly.
-     */
     public void resetEncoder() {
-        liftMotor.setPower(0.0);
-        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        targetPosition = LiftConstants.HOME_TICKS;
-        pid.reset();
-        pid.setTarget(LiftConstants.HOME_TICKS);
+        resetEncoderAtHome();
     }
 
-    /** True after the encoder has been calibrated from the magnetic switch. */
     public boolean isHomed() {
         return homed;
-    }
-
-    /** True only while the lift is currently physically at the HOME switch. */
-    public boolean isAtHome() {
-        return homeSwitch != null && homeSwitch.isPressed();
     }
 
     public boolean isHoming() {
@@ -266,9 +242,8 @@ public final class LiftSubsystem {
         return homingTimedOut;
     }
 
-    /** Compatibility name used by existing telemetry and Actions. */
     public boolean isHomeLimitPressed() {
-        return isAtHome();
+        return homeSwitch != null && homeSwitch.isPressed();
     }
 
     public double getPidOutput() {
@@ -283,12 +258,12 @@ public final class LiftSubsystem {
         return motorPower;
     }
 
-    /** Manually raise the lift. */
+    /** Manually raise the lift. Manual control cancels PID/homing for that moment. */
     public void raise() {
         homing = false;
         motorPower = Math.abs(LiftConstants.MANUAL_POWER);
 
-        if (homed && getCurrentPosition() >= LiftConstants.MAX_TICKS) {
+        if (getCurrentPosition() >= LiftConstants.MAX_TICKS) {
             motorPower = 0.0;
         }
 
@@ -296,18 +271,20 @@ public final class LiftSubsystem {
     }
 
     /**
-     * Manually lower at full negative power. The ONLY lower stop is the physical
-     * magnetic HOME switch; encoder ticks do not determine physical home.
+     * Manually lower the lift at full negative power while respecting the
+     * physical REV magnetic home switch and established encoder home limit.
      */
     public void lower() {
         homing = false;
 
-        if (isAtHome()) {
+        if (isHomeLimitPressed()
+                || (homed && getCurrentPosition() <= LiftConstants.HOME_TICKS)) {
             motorPower = 0.0;
             liftMotor.setPower(0.0);
             return;
         }
 
+        // Explicit full-power downward command for the manual lift test.
         motorPower = -1.0;
         liftMotor.setPower(-1.0);
     }

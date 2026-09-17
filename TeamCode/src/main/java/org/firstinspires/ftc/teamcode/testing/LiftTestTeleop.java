@@ -58,9 +58,9 @@ public class LiftTestTeleop extends LinearOpMode {
 
             // IMPORTANT:
             // Do not call lift.update() here. This is a direct manual motor test.
-            if (raisePressed && !lowerPressed) {
+            if (raisePressed) {
                 lift.raise();
-            } else if (lowerPressed && !raisePressed) {
+            } else if (lowerPressed) {
                 lift.lower();
             } else {
                 lift.stop();

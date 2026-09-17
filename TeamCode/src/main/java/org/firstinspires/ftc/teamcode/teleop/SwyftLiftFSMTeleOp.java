@@ -48,6 +48,7 @@ public final class SwyftLiftFSMTeleOp extends LinearOpMode {
         telemetry.addLine("A = Home | Y = High");
         telemetry.addLine("Either gamepad can control the lift");
         telemetry.addData("Home switch", lift.isHomeLimitPressed());
+        telemetry.addData("ticks", robot.leftLift.getCurrentPosition());
         telemetry.update();
 
         waitForStart();
