@@ -34,6 +34,7 @@ public final class RobotHardware {
     public Servo claw;
     public DcMotorEx intake;
     public Servo servo270;
+    public DcMotorEx shooter;
 
     public void initVerifiedHardware(HardwareMap hardwareMap) {
         leftFront = hardwareMap.get(
@@ -97,6 +98,18 @@ public final class RobotHardware {
                 RobotConstants.HardwareNames.SERVO_270);
     }
 
+    /**
+     * Shooter-only hardware init so existing OpModes do not require a configured
+     * shooter until the mechanism is ready to be integrated into competition code.
+     */
+    public void initShooterHardware(HardwareMap hardwareMap) {
+        shooter = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.SHOOTER);
+
+        voltageSensor = hardwareMap.voltageSensor.iterator().next();
+    }
+
     public void stopDriveMotors() {
         if (leftFront != null) leftFront.setPower(0);
         if (leftBack != null) leftBack.setPower(0);
@@ -110,5 +123,9 @@ public final class RobotHardware {
 
     public void stopIntakeMotor() {
         if (intake != null) intake.setPower(0);
+    }
+
+    public void stopShooterMotor() {
+        if (shooter != null) shooter.setPower(0);
     }
 }
