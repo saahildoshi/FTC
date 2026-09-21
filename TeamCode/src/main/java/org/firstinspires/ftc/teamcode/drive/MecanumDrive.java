@@ -49,6 +49,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
+
 @Config
 public final class MecanumDrive {
     public static class Params {
@@ -246,6 +248,12 @@ public final class MecanumDrive {
         leftBack = robot.leftBack;
         rightBack = robot.rightBack;
         rightFront = robot.rightFront;
+
+        // Brake whenever drive power is zero
+        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // IMU
         lazyImu = robot.lazyImu;
