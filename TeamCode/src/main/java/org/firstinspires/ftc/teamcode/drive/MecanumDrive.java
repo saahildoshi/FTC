@@ -79,6 +79,20 @@ public final class MecanumDrive {
         public double axialVelGain = 3;
         public double lateralVelGain = 1;
         public double headingVelGain = 0.4; // shared with turn
+
+        //For new teleOp type, genericdrive, better than the other system, kamer
+
+        // Pose-controller sleep thresholds
+
+        // Enter sleep only when ALL FOUR are satisfied.
+        public double sleepPositionError = 0.15;              // inches
+        public double sleepHeadingError = Math.toRadians(0.75);
+        public double sleepLinearSpeed = 0.50;                // inches/sec
+        public double sleepYawRate = Math.toRadians(2.0);     // rad/sec
+
+        // Wake if EITHER error exceeds its threshold.
+        public double wakePositionError = 0.40;               // inches
+        public double wakeHeadingError = Math.toRadians(2.0);
     }
 
     public static Params PARAMS = new Params();
@@ -507,5 +521,233 @@ public final class MecanumDrive {
                 defaultTurnConstraints,
                 defaultVelConstraint, defaultAccelConstraint
         );
+    }
+
+    private boolean poseControllerSleeping = false; // private, not a tuning value
+    public void driveToTarget(
+            Pose2dDual<Time> targetPose,
+            PoseVelocity2d robotVelocity) {
+
+        Pose2d target = targetPose.value();
+        Pose2d current = localizer.getPose();
+
+
+        // =========================================================
+        // POSITION ERROR
+        //
+        // X and Y are combined ONLY into pure translational distance.
+        // =========================================================
+
+        double xError =
+                target.position.x - current.position.x;
+
+        double yError =
+                target.position.y - current.position.y;
+
+        double positionError =
+                Math.hypot(xError, yError);
+
+
+        // =========================================================
+        // HEADING ERROR
+        //
+        // Completely separate from position error.
+        // =========================================================
+
+        double headingError =
+                wrapAngle(
+                        target.heading.toDouble()
+                                - current.heading.toDouble()
+                );
+
+
+        // =========================================================
+        // ACTUAL ROBOT SPEED
+        //
+        // X/Y velocity combined into translational speed.
+        // Yaw rate remains completely separate.
+        // =========================================================
+
+        double linearSpeed =
+                Math.hypot(
+                        robotVelocity.linearVel.x,
+                        robotVelocity.linearVel.y
+                );
+
+        double yawRate =
+                Math.abs(robotVelocity.angVel);
+
+
+        // =========================================================
+        // SLEEP / WAKE
+        // =========================================================
+
+        if (poseControllerSleeping) {
+
+            // Wake if EITHER position OR heading has drifted too far.
+            //
+            // Velocity is NOT involved in waking.
+            if (positionError > PARAMS.wakePositionError
+                    || Math.abs(headingError) > PARAMS.wakeHeadingError) {
+
+                poseControllerSleeping = false;
+            }
+
+        } else {
+
+            // Enter sleep only when ALL FOUR conditions are true:
+            //
+            // 1. position error small
+            // 2. heading error small
+            // 3. translational speed small
+            // 4. yaw rate small
+
+            if (positionError < PARAMS.sleepPositionError
+                    && Math.abs(headingError) < PARAMS.sleepHeadingError
+                    && linearSpeed < PARAMS.sleepLinearSpeed
+                    && yawRate < PARAMS.sleepYawRate) {
+
+                poseControllerSleeping = true;
+            }
+        }
+
+
+        // =========================================================
+        // SLEEPING
+        // =========================================================
+
+        if (poseControllerSleeping) {
+
+            leftFront.setPower(0);
+            leftBack.setPower(0);
+            rightBack.setPower(0);
+            rightFront.setPower(0);
+
+            return;
+        }
+
+
+        // =========================================================
+        // ROAD RUNNER POSE CONTROLLER
+        //
+        // Handles X, Y, and heading together.
+        // =========================================================
+
+        targetPoseWriter.write(
+                new PoseMessage(target)
+        );
+
+
+        PoseVelocity2dDual<Time> command =
+                new HolonomicController(
+                        PARAMS.axialGain,
+                        PARAMS.lateralGain,
+                        PARAMS.headingGain,
+
+                        PARAMS.axialVelGain,
+                        PARAMS.lateralVelGain,
+                        PARAMS.headingVelGain
+                ).compute(
+                        targetPose,
+                        current,
+                        robotVelocity
+                );
+
+
+        driveCommandWriter.write(
+                new DriveCommandMessage(command)
+        );
+
+
+        // =========================================================
+        // CONVERT CHASSIS COMMAND TO MECANUM WHEEL COMMANDS
+        // =========================================================
+
+        MecanumKinematics.WheelVelocities<Time> wheelVels =
+                kinematics.inverse(command);
+
+
+        double voltage =
+                voltageSensor.getVoltage();
+
+
+        MotorFeedforward feedforward =
+                new MotorFeedforward(
+                        PARAMS.kS,
+                        PARAMS.kV / PARAMS.inPerTick,
+                        PARAMS.kA / PARAMS.inPerTick
+                );
+
+
+        double leftFrontPower =
+                feedforward.compute(wheelVels.leftFront) / voltage;
+
+        double leftBackPower =
+                feedforward.compute(wheelVels.leftBack) / voltage;
+
+        double rightBackPower =
+                feedforward.compute(wheelVels.rightBack) / voltage;
+
+        double rightFrontPower =
+                feedforward.compute(wheelVels.rightFront) / voltage;
+
+
+        // Keep wheel-power ratios the same if any exceeds 1.
+        double maxPower =
+                Math.max(
+                        1.0,
+                        Math.max(
+                                Math.max(
+                                        Math.abs(leftFrontPower),
+                                        Math.abs(leftBackPower)
+                                ),
+                                Math.max(
+                                        Math.abs(rightBackPower),
+                                        Math.abs(rightFrontPower)
+                                )
+                        )
+                );
+
+
+        leftFrontPower /= maxPower;
+        leftBackPower /= maxPower;
+        rightBackPower /= maxPower;
+        rightFrontPower /= maxPower;
+
+
+        mecanumCommandWriter.write(
+                new MecanumCommandMessage(
+                        voltage,
+                        leftFrontPower,
+                        leftBackPower,
+                        rightBackPower,
+                        rightFrontPower
+                )
+        );
+
+
+        leftFront.setPower(leftFrontPower);
+        leftBack.setPower(leftBackPower);
+        rightBack.setPower(rightBackPower);
+        rightFront.setPower(rightFrontPower);
+    }
+
+
+    public boolean isPoseControllerSleeping() {
+        return poseControllerSleeping;
+    }
+
+
+    private static double wrapAngle(double angle) {
+
+        while (angle > Math.PI) {
+            angle -= 2.0 * Math.PI;
+        }
+
+        while (angle < -Math.PI) {
+            angle += 2.0 * Math.PI;
+        }
+
+        return angle;
     }
 }
