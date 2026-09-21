@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems.camera;
 
-public class AprilTagTargetCorrection  {
+public class AprilTagTargetCorrection {
 
     private static final double OPTIMAL_SHOOTING_X = 0.0;   // inches
     private static final double OPTIMAL_SHOOTING_Y = 30.0;  // inches
@@ -11,9 +11,13 @@ public class AprilTagTargetCorrection  {
             double targetX,
             double targetY,
             double targetYaw,
-            double cameraX,
-            double cameraY,
-            double cameraYaw) {
+            AprilTagReader.Reading reading) {
+
+        // Read only the three values needed from AprilTagReader
+        double cameraX = reading.x;
+        double cameraY = reading.y;
+        double cameraYaw = reading.yaw;
+
 
         double xError =
                 cameraX - OPTIMAL_SHOOTING_X;
