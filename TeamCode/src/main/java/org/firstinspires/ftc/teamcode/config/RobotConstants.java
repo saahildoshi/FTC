@@ -16,6 +16,7 @@ public final class RobotConstants {
         public static final String CLAW = "claw";
         public static final String INTAKE = "intake";
         public static final String SERVO_270 = "servo270";
+        public static final String SHOOTER = "shooter";
 
         private HardwareNames() { }
     }
@@ -69,6 +70,7 @@ public final class RobotConstants {
         public static final String INTAKE = "intake";
         public static final String CLAW = "claw";
         public static final String CR_SERVO_INTAKE = "intakeServo";
+        public static final String SHOOTER = "shooter";
 
         private OptionalMechanisms() { }
     }
