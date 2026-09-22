@@ -248,24 +248,6 @@ public class ConceptAprilTagLocalization extends LinearOpMode {
 
         // Step through the list of detections and display info for each one.
         for (AprilTagDetection detection : currentDetections) {
-<<<<<<< HEAD
-            if (detection.metadata != null) {
-                telemetry.addLine(String.format("\n==== (ID %d) %s", detection.id, detection.metadata.name));
-                // Only use tags that don't have Obelisk in them
-                if (!detection.metadata.name.contains("Obelisk")) {
-                    telemetry.addLine(String.format("XYZ %6.1f %6.1f %6.1f  (inch)",
-                            detection.robotPose.getPosition().x,
-                            detection.robotPose.getPosition().y,
-                            detection.robotPose.getPosition().z));
-                    telemetry.addLine(String.format("PRY %6.1f %6.1f %6.1f  (deg)",
-                            detection.robotPose.getOrientation().getPitch(AngleUnit.DEGREES),
-                            detection.robotPose.getOrientation().getRoll(AngleUnit.DEGREES),
-                            detection.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)));
-                }
-            } else {
-                telemetry.addLine(String.format("\n==== (ID %d) Unknown", detection.id));
-                telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", detection.center.x, detection.center.y));
-=======
             if (detection instanceof AprilTagSingleDetection) {
                 AprilTagSingleDetection singleDet = (AprilTagSingleDetection) detection;
 
@@ -283,7 +265,6 @@ public class ConceptAprilTagLocalization extends LinearOpMode {
                     telemetry.addLine(String.format("\n==== (ID %d) Unknown", singleDet.id));
                     telemetry.addLine(String.format("Center %6.0f %6.0f   (pixels)", singleDet.center.x, singleDet.center.y));
                 }
->>>>>>> upstream/master
             }
         }   // end for() loop
 

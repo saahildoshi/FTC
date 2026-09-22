@@ -83,8 +83,6 @@ public class ConceptGamepadEdgeDetection extends LinearOpMode {
         telemetry.addData("Gamepad 1 Right Bumper Released", gamepad1.rightBumperWasReleased());
         telemetry.addData("Gamepad 1 Right Bumper Status", gamepad1.right_bumper);
 
-<<<<<<< HEAD
-=======
         // Add an empty line to separate the buttons in telemetry
         telemetry.addLine();
 
@@ -101,7 +99,6 @@ public class ConceptGamepadEdgeDetection extends LinearOpMode {
         telemetry.addData("Gamepad 1 Right Trigger Released", gamepad1.rightTriggerWasReleased());
         telemetry.addData("Gamepad 1 Right Trigger Status", gamepad1.right_trigger_pressed);
 
->>>>>>> upstream/master
         // Add a note that the telemetry is only updated every 2 seconds
         telemetry.addLine("\nTelemetry is updated every 2 seconds.");
 

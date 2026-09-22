@@ -111,11 +111,6 @@ public class RobotAutoDriveToAprilTagOmni extends LinearOpMode
     final double MAX_AUTO_TURN  = 0.3;    //  Clip the turn speed to this max value (adjust for your robot)
 
     private DcMotor frontLeftDrive = null;  //  Used to control the left front drive wheel
-<<<<<<< HEAD
-    private DcMotor frontRightDrive = null;  //  Used to control the right front drive wheel
-    private DcMotor backLeftDrive = null;  //  Used to control the left back drive wheel
-    private DcMotor backRightDrive = null;  //  Used to control the right back drive wheel
-=======
     private DcMotor frontRightDrive = null; //  Used to control the right front drive wheel
     private DcMotor backLeftDrive = null;   //  Used to control the left back drive wheel
     private DcMotor backRightDrive = null;  //  Used to control the right back drive wheel
@@ -123,7 +118,6 @@ public class RobotAutoDriveToAprilTagOmni extends LinearOpMode
     private final boolean USE_WEBCAM = true;  // Set true to use a webcam, or false for a phone camera
     private final int DESIRED_TAG_ID = -1;    // The tag you want to approach, or set to -1 for ANY tag.
     private final String DESIRED_CLUSTER_NAME = null; // The cluster name you want to approach, or set null for ANY cluster.
->>>>>>> upstream/master
 
     private VisionPortal visionPortal;               // Used to manage the video source.
     private AprilTagProcessor aprilTag;              // Used for managing the AprilTag detection process.
