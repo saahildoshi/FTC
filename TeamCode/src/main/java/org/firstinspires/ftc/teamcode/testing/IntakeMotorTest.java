@@ -67,6 +67,9 @@ public final class IntakeMotorTest extends LinearOpMode {
             telemetry.addData("Encoder Position", intake.getCurrentPosition());
             telemetry.addData("Velocity (ticks/sec)", intake.getVelocity());
             telemetry.addData("Absolute Velocity", Math.abs(intake.getVelocity()));
+            telemetry.addData("Battery Voltage", "%.2f V", robot.voltageSensor.getVoltage());
+            telemetry.addData("Intake connection", robot.intake.getConnectionInfo());
+            telemetry.addData("Configured motor type", robot.intake.getMotorType().getName());
             telemetry.update();
         }
 

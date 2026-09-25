@@ -20,6 +20,7 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
  * Controls:
  * A = enable closed-loop shooter
  * B = stop shooter
+ * Hold X = bypass PIDF and command raw test power directly
  *
  * Recommended tuning order:
  * 1. Start with kP = kI = kD = 0 and tune kF until actual velocity is close to target.
@@ -50,6 +51,7 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
     public static double MAX_POWER = ShooterConstants.MAX_POWER;
     public static double NOMINAL_VOLTAGE = ShooterConstants.NOMINAL_VOLTAGE;
+    public static double RAW_TEST_POWER = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -65,11 +67,17 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
         boolean previousA = false;
         boolean previousB = false;
+        boolean previousRawTest = false;
+        double filteredRawKfEstimate = Double.NaN;
+        double filteredMaxVelocityAtNominalVoltage = Double.NaN;
 
         telemetry.addLine("Shooter Dashboard PID Test Ready");
         telemetry.addLine("Open FTC Dashboard -> Config -> ShooterDashboardTest");
         telemetry.addLine("A = Start closed-loop shooter");
         telemetry.addLine("B = Stop shooter");
+        telemetry.addLine("Hold X = Raw power bypass (no PIDF/voltage compensation)");
+        telemetry.addData("Shooter connection", robot.shooter.getConnectionInfo());
+        telemetry.addData("Configured motor type", robot.shooter.getMotorType().getName());
         telemetry.update();
 
         waitForStart();
@@ -108,28 +116,75 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
             boolean aNow = gamepad1.a;
             boolean bNow = gamepad1.b;
+            boolean rawTestNow = gamepad1.x;
 
-            if (aNow && !previousA) {
-                shooter.setTargetVelocity(
-                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
-            }
+            if (rawTestNow) {
+                // This is deliberately identical in principle to IntakeMotorTest:
+                // RUN_WITHOUT_ENCODER followed by a direct setPower() command.
+                shooter.setRawPower(
+                        Math.max(0.0, Math.min(1.0, Math.abs(RAW_TEST_POWER))));
+            } else {
+                if (previousRawTest) {
+                    shooter.stop();
+                }
 
-            if (bNow && !previousB) {
-                shooter.stop();
+                if (aNow && !previousA) {
+                    shooter.setTargetVelocity(
+                            ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
+                }
+
+                if (bNow && !previousB) {
+                    shooter.stop();
+                }
+
+                // Apply live target changes without stopping the shooter.
+                if (shooter.isEnabled()) {
+                    shooter.setTargetVelocity(
+                            ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
+                }
+
+                shooter.update();
             }
 
             previousA = aNow;
             previousB = bNow;
+            previousRawTest = rawTestNow;
 
-            // Apply live target changes without stopping the shooter.
-            if (shooter.isEnabled()) {
-                shooter.setTargetVelocity(
-                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
+            if (rawTestNow) {
+                double measuredVelocity = shooter.getCurrentVelocity();
+                double measuredVoltage = shooter.getBatteryVoltage();
+                double appliedRawPower = shooter.getMotorPower();
+
+                if (measuredVelocity > 100.0
+                        && measuredVoltage > 1.0
+                        && appliedRawPower > 0.0) {
+                    double rawKfEstimate =
+                            appliedRawPower
+                                    * measuredVoltage
+                                    / (ShooterConstants.NOMINAL_VOLTAGE * measuredVelocity);
+                    double maxVelocityAtNominalVoltage =
+                            measuredVelocity
+                                    * ShooterConstants.NOMINAL_VOLTAGE
+                                    / measuredVoltage;
+
+                    filteredRawKfEstimate =
+                            Double.isNaN(filteredRawKfEstimate)
+                                    ? rawKfEstimate
+                                    : 0.90 * filteredRawKfEstimate + 0.10 * rawKfEstimate;
+                    filteredMaxVelocityAtNominalVoltage =
+                            Double.isNaN(filteredMaxVelocityAtNominalVoltage)
+                                    ? maxVelocityAtNominalVoltage
+                                    : 0.90 * filteredMaxVelocityAtNominalVoltage
+                                    + 0.10 * maxVelocityAtNominalVoltage;
+                }
             }
 
-            shooter.update();
-
             telemetry.addLine("=== SHOOTER DASHBOARD TUNING ===");
+            telemetry.addData(
+                    "Control Mode",
+                    rawTestNow
+                            ? "RAW POWER BYPASS"
+                            : shooter.isEnabled() ? "CLOSED LOOP" : "STOPPED");
             telemetry.addData("Enabled", shooter.isEnabled());
             telemetry.addData("Ready To Shoot", shooter.isReadyToShoot());
 
@@ -163,6 +218,26 @@ public final class ShooterDashboardTest extends LinearOpMode {
                     "Motor Power",
                     "%.4f",
                     shooter.getMotorPower());
+            telemetry.addData(
+                    "Hub Reported Motor Power",
+                    "%.4f",
+                    robot.shooter.getPower());
+            telemetry.addData(
+                    "Command Before Clipping",
+                    "%.4f",
+                    shooter.getControlCommandBeforeClipping());
+            telemetry.addData("Output Saturated", shooter.isOutputSaturated());
+            telemetry.addData("Raw Test Power", "%.4f", RAW_TEST_POWER);
+            telemetry.addData(
+                    "Raw Estimated kF",
+                    Double.isNaN(filteredRawKfEstimate)
+                            ? "Waiting for speed..."
+                            : String.format("%.7f", filteredRawKfEstimate));
+            telemetry.addData(
+                    "Estimated Max Velocity @ 12 V",
+                    Double.isNaN(filteredMaxVelocityAtNominalVoltage)
+                            ? "Waiting for speed..."
+                            : String.format("%.1f ticks/s", filteredMaxVelocityAtNominalVoltage));
 
             telemetry.addData(
                     "Battery Voltage",
@@ -172,6 +247,13 @@ public final class ShooterDashboardTest extends LinearOpMode {
                     "Voltage Compensation",
                     "%.3f",
                     shooter.getVoltageCompensation());
+            telemetry.addData("Shooter connection", robot.shooter.getConnectionInfo());
+            telemetry.addData("Configured motor type", robot.shooter.getMotorType().getName());
+
+            if (shooter.isOutputSaturated()) {
+                telemetry.addLine(
+                        "WARNING: OUTPUT CLIPPED - gain changes cannot increase motor voltage");
+            }
 
             telemetry.addData(
                     "Tolerance (ticks/sec)",

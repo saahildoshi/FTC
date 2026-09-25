@@ -17,15 +17,19 @@ public final class ShooterConstants {
     // ----------------------------------------------------------------------
     // VELOCITY PID
     // Error units are encoder ticks/second.
-    // These are safe STARTING values and should be tuned on the physical robot.
+    // Characterized from 2100 ticks/s at raw power 1.0 and 12.11 V.
+    // kP = 0.0005 adds 0.05 power for a 100 ticks/s velocity error.
     // ----------------------------------------------------------------------
-    public static double kP = 0.00035;
-    public static double kI = 0.00005;
-    public static double kD = 0.000002;
+    public static double kP = 0.00050;
+    public static double kI = 0.0;
+    public static double kD = 0.0;
 
     // Velocity feedforward: normalized motor power per target tick/second.
-    // Example: 1800 ticks/s * 0.00035 ~= 0.63 baseline power at 12 V.
-    public static double kF = 0.00035;
+    // kF = V_loaded / (V_nominal * measured velocity)
+    //    = 12.11 / (12.0 * 2100) ~= 0.0004806.
+    // At 1800 ticks/s this requests ~0.865 power at the 12 V reference,
+    // leaving approximately 13.5% nominal output for feedback recovery.
+    public static double kF = 0.0004806;
 
     // ----------------------------------------------------------------------
     // TARGET VELOCITY
