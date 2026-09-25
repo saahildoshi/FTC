@@ -31,6 +31,8 @@ public final class ShooterSubsystem {
     private double pidOutput = 0.0;
     private double feedforwardOutput = 0.0;
     private double voltageCompensation = 1.0;
+    private double controlCommandBeforeClipping = 0.0;
+    private boolean outputSaturated = false;
     private double motorPower = 0.0;
 
     public ShooterSubsystem(RobotHardware robot) {
@@ -65,6 +67,8 @@ public final class ShooterSubsystem {
             feedforwardOutput = 0.0;
             velocityError = 0.0;
             voltageCompensation = 1.0;
+            controlCommandBeforeClipping = 0.0;
+            outputSaturated = false;
             motorPower = 0.0;
             shooterMotor.setPower(0.0);
             return;
@@ -95,13 +99,45 @@ public final class ShooterSubsystem {
 
         // When a ball loads the flywheel, velocity drops, error becomes positive,
         // and the PID term immediately adds recovery power above the feedforward.
-        motorPower =
+        controlCommandBeforeClipping =
                 (feedforwardOutput + pidOutput) * voltageCompensation;
 
+        double maximumPower = Math.abs(ShooterConstants.MAX_POWER);
         motorPower = Range.clip(
-                motorPower,
+                controlCommandBeforeClipping,
                 0.0,
-                Math.abs(ShooterConstants.MAX_POWER));
+                maximumPower);
+
+        outputSaturated =
+                controlCommandBeforeClipping < 0.0
+                        || controlCommandBeforeClipping > maximumPower;
+
+        shooterMotor.setPower(motorPower);
+    }
+
+    /**
+     * Bypass PIDF and voltage compensation for a direct comparison with a raw
+     * motor-power test such as IntakeMotorTest.
+     */
+    public void setRawPower(double power) {
+        enabled = false;
+        targetVelocity = 0.0;
+        pid.reset();
+        pid.setTarget(0.0);
+
+        currentVelocity = Math.abs(shooterMotor.getVelocity());
+        velocityError = 0.0;
+        pidOutput = 0.0;
+        feedforwardOutput = 0.0;
+        voltageCompensation = 1.0;
+
+        controlCommandBeforeClipping = Math.abs(power);
+        double maximumPower = Math.abs(ShooterConstants.MAX_POWER);
+        motorPower = Range.clip(
+                controlCommandBeforeClipping,
+                0.0,
+                maximumPower);
+        outputSaturated = controlCommandBeforeClipping > maximumPower;
 
         shooterMotor.setPower(motorPower);
     }
@@ -137,6 +173,9 @@ public final class ShooterSubsystem {
         velocityError = 0.0;
         pidOutput = 0.0;
         feedforwardOutput = 0.0;
+        voltageCompensation = 1.0;
+        controlCommandBeforeClipping = 0.0;
+        outputSaturated = false;
         motorPower = 0.0;
 
         shooterMotor.setPower(0.0);
@@ -181,6 +220,14 @@ public final class ShooterSubsystem {
 
     public double getMotorPower() {
         return motorPower;
+    }
+
+    public double getControlCommandBeforeClipping() {
+        return controlCommandBeforeClipping;
+    }
+
+    public boolean isOutputSaturated() {
+        return outputSaturated;
     }
 
     public double getBatteryVoltage() {
