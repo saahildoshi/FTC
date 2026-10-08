@@ -31,33 +31,70 @@ public class ShootingSequence {
     // How close is "perfect enough"
     private static final double X_TOLERANCE = 0.0001;      // inches
     private static final double Y_TOLERANCE = 0.0001;      // inches
-    private static final double YAW_TOLERANCE = 0.001;    // degrees
+    private static final double YAW_TOLERANCE = 0.001;     // degrees
 
 
     /*
      * Returns true if alignment and anchoring succeeded.
      * Returns false if no AprilTag cluster could be read.
-     *
-     * anchorPose is the known true Road Runner pose of the robot
-     * when it is perfectly aligned for this shot.
      */
     public static boolean alignAndAnchor(
             MecanumDrive drive,
-            AprilTagReader aprilTagReader,
-            Pose2d anchorPose) {
+            AprilTagReader aprilTagReader) {
+
+
+        // Determine which side of the field the robot currently thinks it is on.
+        Pose2d currentPose =
+                drive.localizer.getPose();
+
+
+        AprilTagTargetCorrection.LeftRight leftRight;
+
+        if (currentPose.position.x < 0.0) {
+
+            // Red side
+            leftRight =
+                    AprilTagTargetCorrection.LeftRight.LEFT;
+
+        } else {
+
+            // Blue side
+            leftRight =
+                    AprilTagTargetCorrection.LeftRight.RIGHT;
+        }
+
+
+        AprilTagTargetCorrection.FrontBack frontBack;
+
+        if (currentPose.position.y > 0.0) {
+
+            // Far side
+            frontBack =
+                    AprilTagTargetCorrection.FrontBack.FRONT;
+
+        } else {
+
+            // Audience side
+            frontBack =
+                    AprilTagTargetCorrection.FrontBack.BACK;
+        }
+
 
         while (true) {
 
             List<AprilTagReader.Reading> readings =
                     aprilTagReader.getReadings();
 
+
             // Higher-level autonomous code decides what to do if this happens.
             if (readings.isEmpty()) {
                 return false;
             }
 
+
             // For now, use the visible cluster.
-            AprilTagReader.Reading reading = readings.get(0);
+            AprilTagReader.Reading reading =
+                    readings.get(0);
 
 
             // Check whether the camera already sees the desired alignment.
@@ -75,6 +112,34 @@ public class ShootingSequence {
                     Math.abs(yError) <= Y_TOLERANCE &&
                     Math.abs(yawError) <= YAW_TOLERANCE) {
 
+
+                /*
+                 * Get the known anchor position corresponding to:
+                 *
+                 * LEFT  = red
+                 * RIGHT = blue
+                 *
+                 * FRONT = far side
+                 * BACK  = audience side
+                 *
+                 * getAnchorPose() and AnchorPose will be defined
+                 * in AprilTagTargetCorrection.
+                 */
+                AprilTagTargetCorrection.AnchorPose anchor =
+                        AprilTagTargetCorrection.getAnchorPose(
+                                leftRight,
+                                frontBack
+                        );
+
+
+                Pose2d anchorPose =
+                        new Pose2d(
+                                anchor.x,
+                                anchor.y,
+                                anchor.yaw
+                        );
+
+
                 // Robot is physically at the known anchor position.
                 drive.localizer.setPose(anchorPose);
 
@@ -88,7 +153,9 @@ public class ShootingSequence {
                             drive.localizer.getPose().position.x,
                             drive.localizer.getPose().position.y,
                             drive.localizer.getPose().heading.toDouble(),
-                            reading
+                            reading,
+                            leftRight,
+                            frontBack
                     );
 
 
@@ -104,6 +171,7 @@ public class ShootingSequence {
                             )
                             .build()
             );
+
 
             // Loop again:
             // read tag again -> correct again -> repeat until aligned.
