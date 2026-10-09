@@ -44,7 +44,7 @@ public final class ShooterSubsystem {
                     "Shooter motor is not initialized. Call RobotHardware.initShooterHardware() first.");
         }
 
-        shooterMotor.setDirection(DcMotor.Direction.FORWARD);
+        shooterMotor.setDirection(DcMotor.Direction.REVERSE);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
@@ -149,10 +149,13 @@ public final class ShooterSubsystem {
 
     /** Set a new closed-loop target velocity in encoder ticks/second. */
     public void setTargetVelocity(double ticksPerSecond) {
+        double maximumTargetVelocity = Math.min(
+                Math.abs(ShooterConstants.MAX_TARGET_VELOCITY_TICKS_PER_SECOND),
+                ShooterConstants.ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND);
         double safeTarget = Range.clip(
                 Math.abs(ticksPerSecond),
                 0.0,
-                Math.abs(ShooterConstants.MAX_TARGET_VELOCITY_TICKS_PER_SECOND));
+                maximumTargetVelocity);
 
         if (!enabled || Math.abs(safeTarget - targetVelocity) > 0.001) {
             pid.reset();

@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
 
 /**
- * SHOOTER VELOCITY PID TEST
+ * SHOOTER VELOCITY PIDF TEST
  *
  * Robot Configuration name:
  * shooter
@@ -21,13 +21,13 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
  * D-pad Up = target velocity +50 ticks/sec
  * D-pad Down = target velocity -50 ticks/sec
  *
- * Watch Target Velocity, Actual Velocity, Velocity Error, PID Output,
- * Feedforward Output, and Ready To Shoot in Driver Station / FTC Dashboard.
+ * Watch Target Velocity, Actual Velocity, Velocity Error, PID Feedback,
+ * Feedforward, PIDF Command, and Shooter State in Driver Station / Dashboard.
  *
  * A useful physical test is to let the flywheel stabilize, feed balls through it,
  * and watch how quickly Actual Velocity returns to Target Velocity after each shot.
  */
-@TeleOp(name = "Shooter Velocity PID Test", group = "Testing")
+@TeleOp(name = "Shooter Velocity PIDF Test", group = "Testing")
 public final class ShooterVelocityTest extends LinearOpMode {
 
     private static final double VELOCITY_STEP = 50.0;
@@ -46,8 +46,10 @@ public final class ShooterVelocityTest extends LinearOpMode {
 
         boolean previousDpadUp = false;
         boolean previousDpadDown = false;
+        boolean previousA = false;
+        boolean previousB = false;
 
-        telemetry.addLine("Shooter Velocity PID Test Ready");
+        telemetry.addLine("Shooter Velocity PIDF Test Ready");
         telemetry.addLine("A = Start shooter");
         telemetry.addLine("B = Stop shooter");
         telemetry.addLine("D-pad Up/Down = +/- 50 ticks/sec");
@@ -67,6 +69,8 @@ public final class ShooterVelocityTest extends LinearOpMode {
 
             boolean dpadUp = gamepad1.dpad_up;
             boolean dpadDown = gamepad1.dpad_down;
+            boolean aNow = gamepad1.a;
+            boolean bNow = gamepad1.b;
 
             if (dpadUp && !previousDpadUp) {
                 ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND =
@@ -87,13 +91,16 @@ public final class ShooterVelocityTest extends LinearOpMode {
             previousDpadUp = dpadUp;
             previousDpadDown = dpadDown;
 
-            if (gamepad1.a) {
+            if (aNow && !previousA) {
                 shooter.start();
             }
 
-            if (gamepad1.b) {
+            if (bNow && !previousB) {
                 shooter.stop();
             }
+
+            previousA = aNow;
+            previousB = bNow;
 
             // If Dashboard or D-pad changes the target while running, apply it live.
             if (shooter.isEnabled()) {
@@ -103,36 +110,47 @@ public final class ShooterVelocityTest extends LinearOpMode {
 
             shooter.update();
 
-            telemetry.addLine("=== SHOOTER VELOCITY CONTROL ===");
+            double targetVelocity = shooter.getTargetVelocity();
+            double currentVelocity = shooter.getCurrentVelocity();
+            double velocityError = targetVelocity - currentVelocity;
+            double pidFeedback = shooter.getPidOutput();
+            double feedforward = shooter.getFeedforwardOutput();
+            double pidfCommand = pidFeedback + feedforward;
+            double motorPower = shooter.getMotorPower();
+            double maxPower = Math.abs(ShooterConstants.MAX_POWER);
+
+            telemetry.addLine("=== SHOOTER PIDF VELOCITY CONTROL ===");
             telemetry.addData("Enabled", shooter.isEnabled());
-            telemetry.addData("Ready To Shoot", shooter.isReadyToShoot());
+            telemetry.addData(
+                    "Shooter State",
+                    getShooterState(shooter, velocityError));
             telemetry.addData(
                     "Target Velocity (ticks/sec)",
                     "%.1f",
-                    shooter.getTargetVelocity());
+                    targetVelocity);
             telemetry.addData(
                     "Actual Velocity (ticks/sec)",
                     "%.1f",
-                    shooter.getCurrentVelocity());
+                    currentVelocity);
             telemetry.addData(
                     "Velocity Error (ticks/sec)",
                     "%.1f",
-                    shooter.getVelocityError());
+                    velocityError);
 
             telemetry.addData("kP", ShooterConstants.kP);
             telemetry.addData("kI", ShooterConstants.kI);
             telemetry.addData("kD", ShooterConstants.kD);
             telemetry.addData("kF", ShooterConstants.kF);
 
-            telemetry.addData("PID Output", "%.4f", shooter.getPidOutput());
+            telemetry.addData("PID Feedback", "%.4f", pidFeedback);
             telemetry.addData(
-                    "Feedforward Output",
+                    "Feedforward",
                     "%.4f",
-                    shooter.getFeedforwardOutput());
+                    feedforward);
             telemetry.addData(
-                    "Voltage Compensation",
-                    "%.3f",
-                    shooter.getVoltageCompensation());
+                    "PIDF Command (before voltage)",
+                    "%.4f",
+                    pidfCommand);
             telemetry.addData(
                     "Battery Voltage",
                     "%.2f V",
@@ -140,11 +158,30 @@ public final class ShooterVelocityTest extends LinearOpMode {
             telemetry.addData(
                     "Motor Power",
                     "%.3f",
-                    shooter.getMotorPower());
+                    motorPower);
+            telemetry.addData(
+                    "Power Saturated",
+                    maxPower > 0.0 && motorPower >= maxPower - 0.0001);
 
             telemetry.update();
         }
 
         shooter.stop();
+    }
+
+    private static String getShooterState(
+            ShooterSubsystem shooter,
+            double velocityError) {
+        if (!shooter.isEnabled()) {
+            return "STOPPED";
+        }
+
+        double tolerance =
+                Math.abs(ShooterConstants.VELOCITY_TOLERANCE_TICKS_PER_SECOND);
+        if (Math.abs(velocityError) <= tolerance) {
+            return "READY";
+        }
+
+        return velocityError > 0.0 ? "RECOVERING" : "OVERSPEED";
     }
 }

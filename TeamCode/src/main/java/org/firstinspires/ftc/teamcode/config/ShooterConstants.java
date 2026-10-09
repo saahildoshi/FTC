@@ -27,15 +27,17 @@ public final class ShooterConstants {
     // Velocity feedforward: normalized motor power per target tick/second.
     // kF = V_loaded / (V_nominal * measured velocity)
     //    = 12.11 / (12.0 * 2100) ~= 0.0004806.
-    // At 1800 ticks/s this requests ~0.865 power at the 12 V reference,
-    // leaving approximately 13.5% nominal output for feedback recovery.
+    // At 1200 ticks/s this requests ~0.577 power at the 12 V reference,
+    // leaving output available for feedback recovery.
     public static double kF = 0.0004806;
 
     // ----------------------------------------------------------------------
     // TARGET VELOCITY
     // ----------------------------------------------------------------------
-    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1800.0;
-    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 3000.0;
+    public static final double ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND =
+            1200.0;
+    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1200.0;
+    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 1200.0;
 
     // Shooter is considered ready when actual speed is this close to target.
     public static double VELOCITY_TOLERANCE_TICKS_PER_SECOND = 50.0;

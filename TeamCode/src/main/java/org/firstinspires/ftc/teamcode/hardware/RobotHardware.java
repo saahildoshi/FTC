@@ -35,6 +35,10 @@ public final class RobotHardware {
     public DcMotorEx intake;
     public Servo servo270;
     public DcMotorEx shooter;
+    public Servo leftGate;
+    public Servo rightGate;
+    public Servo flowerLeft;
+    public Servo flowerRight;
 
     public void initVerifiedHardware(HardwareMap hardwareMap) {
         leftFront = hardwareMap.get(
@@ -108,6 +112,34 @@ public final class RobotHardware {
                 RobotConstants.HardwareNames.SHOOTER);
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
+    }
+
+    /**
+     * Gate-only initialization using standard positional servos. Keeping this
+     * separate prevents unrelated OpModes from requiring the gate hardware.
+     */
+    public void initGateHardware(HardwareMap hardwareMap) {
+        leftGate = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.LEFT_GATE);
+
+        rightGate = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.RIGHT_GATE);
+    }
+
+    /**
+     * Flower-descorer-only initialization so other OpModes do not require the
+     * two servos in their Robot Controller configuration.
+     */
+    public void initFlowerDescorerHardware(HardwareMap hardwareMap) {
+        flowerLeft = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.FLOWER_LEFT);
+
+        flowerRight = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.FLOWER_RIGHT);
     }
 
     public void stopDriveMotors() {
