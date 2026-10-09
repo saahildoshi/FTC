@@ -96,7 +96,9 @@ public final class ShooterDashboardTest extends LinearOpMode {
             ShooterConstants.kF = kF;
 
             ShooterConstants.MAX_TARGET_VELOCITY_TICKS_PER_SECOND =
-                    Math.max(0.0, MAX_TARGET_VELOCITY_TICKS_PER_SECOND);
+                    Math.min(
+                            ShooterConstants.ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND,
+                            Math.max(0.0, MAX_TARGET_VELOCITY_TICKS_PER_SECOND));
 
             ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND =
                     Math.max(

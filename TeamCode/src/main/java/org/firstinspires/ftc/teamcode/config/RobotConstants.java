@@ -17,6 +17,10 @@ public final class RobotConstants {
         public static final String INTAKE = "intake";
         public static final String SERVO_270 = "servo270";
         public static final String SHOOTER = "shooter";
+        public static final String LEFT_GATE = "leftGate";
+        public static final String RIGHT_GATE = "rightGate";
+        public static final String FLOWER_LEFT = "flowerLeft";
+        public static final String FLOWER_RIGHT = "flowerRight";
 
         private HardwareNames() { }
     }
