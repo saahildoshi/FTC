@@ -1045,8 +1045,12 @@ public final class KamerDriveTeleOp extends LinearOpMode {
             double aPrime,
             double dt) {
 
+        // Only the magnitude of the direction change should control
+        // how strongly we blend from the previous correction weighting
+        // to the current one. Clockwise vs. counterclockwise must not
+        // change the interpolation itself.
         double angleChangeFraction =
-                (2.0 * aPrime / Math.PI) * dt;
+                (2.0 * Math.abs(aPrime) / Math.PI) * dt;
 
 
         double xOne =
