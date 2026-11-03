@@ -358,16 +358,20 @@ public final class KamerDriveTeleOp extends LinearOpMode {
             // =====================================================
             // RAW CONTROLLER INPUT
             //
-            // Positive X = forward
-            // Positive Y = left
+            // Controller/stick coordinates:
+            // Positive stick X = left
+            // Positive stick Y = forward
             // Positive yaw = counterclockwise
+            //
+            // Road Runner robot coordinates are different:
+            // robot X = forward, robot Y = left.
             // =====================================================
 
             double stickX =
-                    -gamepad1.left_stick_y;
+                    -gamepad1.left_stick_x;
 
             double stickY =
-                    -gamepad1.left_stick_x;
+                    -gamepad1.left_stick_y;
 
             double yawInput =
                     -gamepad1.right_stick_x;
@@ -418,10 +422,18 @@ public final class KamerDriveTeleOp extends LinearOpMode {
             // DESIRED VELOCITIES BEFORE RAMP
             // =====================================================
 
+            /*
+             * Convert from the controller convention
+             *     stick X = lateral/left
+             *     stick Y = forward
+             * into Road Runner's translation-vector convention
+             *     vector X = forward
+             *     vector Y = left.
+             */
             Vector2d desiredTranslation =
                     new Vector2d(
-                            stickX * maximumTranslationSpeed,
-                            stickY * maximumTranslationSpeed
+                            stickY * maximumTranslationSpeed,
+                            stickX * maximumTranslationSpeed
                     );
 
 
@@ -607,11 +619,13 @@ public final class KamerDriveTeleOp extends LinearOpMode {
                     Math.sin(heading);
 
 
-            double xErrorRobot =
+            // Road Runner robot-frame components:
+            // forward = robot X, lateral/left = robot Y.
+            double forwardErrorRobot =
                     xErrorField * cosHeading
                             + yErrorField * sinHeading;
 
-            double yErrorRobot =
+            double lateralErrorRobot =
                     -xErrorField * sinHeading
                             + yErrorField * cosHeading;
 
@@ -629,10 +643,18 @@ public final class KamerDriveTeleOp extends LinearOpMode {
 
             if (requestedTranslationSpeed > 0.0) {
 
+                /*
+                 * Stage 2 uses the controller/math convention:
+                 *     x = lateral error
+                 *     y = forward error
+                 *
+                 * Therefore straight-forward motion (angleA = 0) keeps
+                 * the lateral correction and releases forward correction.
+                 */
                 aOne =
                         calculateAOne(
-                                xErrorRobot,
-                                yErrorRobot,
+                                lateralErrorRobot,
+                                forwardErrorRobot,
                                 previousAngleA,
                                 angleA,
                                 aPrime,
@@ -645,13 +667,22 @@ public final class KamerDriveTeleOp extends LinearOpMode {
                 // ROBOT POSITION CORRECTION -> FIELD TARGET
                 // =================================================
 
+                // aOne.x = lateral correction, aOne.y = forward correction.
+                double lateralCorrectionRobot =
+                        aOne.x;
+
+                double forwardCorrectionRobot =
+                        aOne.y;
+
+                // Convert (forward, lateral) robot-frame correction
+                // back into Road Runner field X/Y.
                 double xOneField =
-                        aOne.x * cosHeading
-                                - aOne.y * sinHeading;
+                        forwardCorrectionRobot * cosHeading
+                                - lateralCorrectionRobot * sinHeading;
 
                 double yOneField =
-                        aOne.x * sinHeading
-                                + aOne.y * cosHeading;
+                        forwardCorrectionRobot * sinHeading
+                                + lateralCorrectionRobot * cosHeading;
 
 
                 targetX =
@@ -674,8 +705,8 @@ public final class KamerDriveTeleOp extends LinearOpMode {
                  */
                 aOne =
                         new Vector2d(
-                                xErrorRobot,
-                                yErrorRobot
+                                lateralErrorRobot,
+                                forwardErrorRobot
                         );
             }
 
@@ -1019,6 +1050,14 @@ public final class KamerDriveTeleOp extends LinearOpMode {
 
     // =============================================================
     // STEP 2 - ANGLE-DEPENDENT POSITION CORRECTION
+    //
+    // Stage 2 coordinate convention:
+    //     x = lateral/left-right position error
+    //     y = forward/back position error
+    //
+    // angleA convention:
+    //     0 = forward
+    //     +pi/2 = left
     // =============================================================
 
     private static Vector2d calculateAOne(
