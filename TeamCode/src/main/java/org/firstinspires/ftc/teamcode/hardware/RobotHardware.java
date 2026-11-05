@@ -68,16 +68,16 @@ public final class RobotHardware {
                 hardwareMap,
                 RobotConstants.HardwareNames.IMU,
                 new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.LEFT,
-                        RevHubOrientationOnRobot.UsbFacingDirection.UP
+                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                        RevHubOrientationOnRobot.UsbFacingDirection.LEFT
                 )
         );
 
-        par = new OverflowEncoder(new RawEncoder(rightBack));
-        perp = new OverflowEncoder(new RawEncoder(leftBack));
+        perp = new OverflowEncoder(new RawEncoder(leftFront));
+        par = new OverflowEncoder(new RawEncoder(leftBack));
 
-        par.setDirection(DcMotorSimple.Direction.REVERSE);
-        perp.setDirection(DcMotorSimple.Direction.REVERSE);
+        par.setDirection(DcMotorSimple.Direction.FORWARD);
+        perp.setDirection(DcMotorSimple.Direction.FORWARD);
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
@@ -112,6 +112,13 @@ public final class RobotHardware {
                 RobotConstants.HardwareNames.SHOOTER);
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
+    }
+
+    /** Intake-only initialization for OpModes that do not use the legacy lift. */
+    public void initIntakeHardware(HardwareMap hardwareMap) {
+        intake = hardwareMap.get(
+                DcMotorEx.class,
+                RobotConstants.HardwareNames.INTAKE);
     }
 
     /**

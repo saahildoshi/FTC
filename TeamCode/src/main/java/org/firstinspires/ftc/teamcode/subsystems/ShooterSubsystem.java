@@ -6,12 +6,12 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.config.ShooterConstants;
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
-import org.firstinspires.ftc.teamcode.util.CustomPIDController;
+import org.firstinspires.ftc.teamcode.util.CustomPIDFController;
 
 /**
  * CLOSED-LOOP SHOOTER VELOCITY CONTROLLER.
  *
- * Similar to LiftSubsystem, this class uses the team's CustomPIDController and
+ * This class uses the team's CustomPIDFController and
  * Dashboard-tunable constants. The important difference is that the feedback
  * variable is motor velocity (ticks/second), not encoder position.
  *
@@ -20,7 +20,7 @@ import org.firstinspires.ftc.teamcode.util.CustomPIDController;
 public final class ShooterSubsystem {
 
     private final DcMotorEx shooterMotor;
-    private final CustomPIDController pid;
+    private final CustomPIDFController pidf;
     private final RobotHardware robot;
 
     private double targetVelocity = 0.0;
@@ -48,12 +48,14 @@ public final class ShooterSubsystem {
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        pid = new CustomPIDController(
+        pidf = new CustomPIDFController(
                 ShooterConstants.kP,
                 ShooterConstants.kI,
-                ShooterConstants.kD);
+                ShooterConstants.kD,
+                ShooterConstants.kF);
+        pidf.setIntegralLimit(ShooterConstants.PID_INTEGRAL_LIMIT);
 
-        pid.setTarget(0.0);
+        pidf.setTarget(0.0);
     }
 
     /**
@@ -74,19 +76,20 @@ public final class ShooterSubsystem {
             return;
         }
 
-        // Allow live FTC Dashboard PID tuning just like the lift.
-        pid.setPID(
+        // Apply all live FTC Dashboard PIDF values from ShooterConstants.
+        pidf.setPIDF(
                 ShooterConstants.kP,
                 ShooterConstants.kI,
-                ShooterConstants.kD);
+                ShooterConstants.kD,
+                ShooterConstants.kF);
+        pidf.setIntegralLimit(ShooterConstants.PID_INTEGRAL_LIMIT);
 
-        pid.setTarget(targetVelocity);
+        pidf.setTarget(targetVelocity);
 
         velocityError = targetVelocity - currentVelocity;
-        pidOutput = pid.calculate(currentVelocity);
-
-        // Baseline power needed to maintain the requested flywheel speed.
-        feedforwardOutput = ShooterConstants.kF * targetVelocity;
+        double pidfOutput = pidf.calculate(currentVelocity);
+        pidOutput = pidf.getFeedbackOutput();
+        feedforwardOutput = pidf.getFeedforwardOutput();
 
         // Keep the effective motor voltage more consistent as battery voltage changes.
         double batteryVoltage = getBatteryVoltage();
@@ -100,7 +103,7 @@ public final class ShooterSubsystem {
         // When a ball loads the flywheel, velocity drops, error becomes positive,
         // and the PID term immediately adds recovery power above the feedforward.
         controlCommandBeforeClipping =
-                (feedforwardOutput + pidOutput) * voltageCompensation;
+                pidfOutput * voltageCompensation;
 
         double maximumPower = Math.abs(ShooterConstants.MAX_POWER);
         motorPower = Range.clip(
@@ -122,8 +125,8 @@ public final class ShooterSubsystem {
     public void setRawPower(double power) {
         enabled = false;
         targetVelocity = 0.0;
-        pid.reset();
-        pid.setTarget(0.0);
+        pidf.reset();
+        pidf.setTarget(0.0);
 
         currentVelocity = Math.abs(shooterMotor.getVelocity());
         velocityError = 0.0;
@@ -158,19 +161,19 @@ public final class ShooterSubsystem {
                 maximumTargetVelocity);
 
         if (!enabled || Math.abs(safeTarget - targetVelocity) > 0.001) {
-            pid.reset();
+            pidf.reset();
         }
 
         targetVelocity = safeTarget;
-        pid.setTarget(targetVelocity);
+        pidf.setTarget(targetVelocity);
         enabled = targetVelocity > 0.0;
     }
 
     public void stop() {
         enabled = false;
         targetVelocity = 0.0;
-        pid.reset();
-        pid.setTarget(0.0);
+        pidf.reset();
+        pidf.setTarget(0.0);
 
         currentVelocity = Math.abs(shooterMotor.getVelocity());
         velocityError = 0.0;

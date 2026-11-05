@@ -55,13 +55,13 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 public final class MecanumDrive {
     public static class Params {
         // drive model parameters
-        public double inPerTick = 0.00195823799806;
-        public double lateralInPerTick = 0.001506869625201658;
-        public double trackWidthTicks = 7052.723587505585;
+        public double inPerTick = 0.00197889182058047;
+        public double lateralInPerTick = 0.0015164358918588737;
+        public double trackWidthTicks = 7101.8509797752395;
 
         // feedforward parameters (in tick units)
-        public double kS = 1.0960766599213287;
-        public double kV = 0.00026499372265495133;
+        public double kS = 1.1193407548767462;
+        public double kV = 0.0002624562245394379;
         public double kA = 0.00001;
 
         // path profile parameters (in inches)

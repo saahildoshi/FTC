@@ -19,13 +19,13 @@ public final class IntakeSubsystem {
 
     public IntakeSubsystem(RobotHardware robot) {
         intakeMotor = robot.intake;
-        intakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
     public void setPower(double power) {
-        intakeMotor.setPower(Range.clip(power, -1.0, 1.0));
+        intakeMotor.setPower(Range.clip(power, -0.75, 0.75));
     }
 
     public void forward(double power) {

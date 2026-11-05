@@ -18,7 +18,15 @@ dependencies {
 
 tasks.register('run', JavaExec) {
     group = 'application'
-    description = 'Runs the Road Runner 1.0 MeepMeep visualizer.'
+    description = 'Visualizes both Hive side autonomous routes in MeepMeep.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'com.example.meepmeeptesting.MeepMeepTesting'
+    mainClass = 'com.example.meepmeeptesting.MeepMeepHiveSideAutos'
+}
+
+tasks.register('runDownSide', JavaExec) {
+    group = 'application'
+    description = 'Visualizes both delayed Down side autonomous routes in MeepMeep.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.meepmeeptesting.MeepMeepHiveSideAutos'
+    args 'down'
 }

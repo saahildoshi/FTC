@@ -17,30 +17,31 @@ public final class ShooterConstants {
     // ----------------------------------------------------------------------
     // VELOCITY PID
     // Error units are encoder ticks/second.
-    // Characterized from 2100 ticks/s at raw power 1.0 and 12.11 V.
-    // kP = 0.0005 adds 0.05 power for a 100 ticks/s velocity error.
+    // Tune these live in FTC Dashboard for velocity error in ticks/second.
     // ----------------------------------------------------------------------
-    public static double kP = 0.00050;
+    public static double kP = 0.003;
     public static double kI = 0.0;
     public static double kD = 0.0;
+    public static double PID_INTEGRAL_LIMIT = 500.0;
 
     // Velocity feedforward: normalized motor power per target tick/second.
-    // kF = V_loaded / (V_nominal * measured velocity)
-    //    = 12.11 / (12.0 * 2100) ~= 0.0004806.
-    // At 1200 ticks/s this requests ~0.577 power at the 12 V reference,
-    // leaving output available for feedback recovery.
-    public static double kF = 0.0004806;
+    public static double kF = 0.0003;
 
     // ----------------------------------------------------------------------
     // TARGET VELOCITY
     // ----------------------------------------------------------------------
     public static final double ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND =
-            1200.0;
-    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1200.0;
-    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 1200.0;
+            1200;
+    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1200;
+    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 1200;
 
     // Shooter is considered ready when actual speed is this close to target.
     public static double VELOCITY_TOLERANCE_TICKS_PER_SECOND = 50.0;
+
+    // Automatic gate hysteresis. The gate opens only after the flywheel reaches
+    // the upper threshold and closes only after it falls below the lower one.
+    public static double GATE_OPEN_VELOCITY_TICKS_PER_SECOND = 1100.0;
+    public static double GATE_CLOSE_VELOCITY_TICKS_PER_SECOND = 900.0;
 
     // ----------------------------------------------------------------------
     // OUTPUT / VOLTAGE COMPENSATION

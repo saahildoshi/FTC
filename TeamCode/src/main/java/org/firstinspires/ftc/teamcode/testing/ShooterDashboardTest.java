@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.config.ShooterConstants;
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
+import org.firstinspires.ftc.teamcode.subsystems.GateSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
 
 /**
@@ -20,7 +21,9 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
  * Controls:
  * A = enable closed-loop shooter
  * B = stop shooter
- * Hold X = bypass PIDF and command raw test power directly
+ * X = open shooter gate
+ * Y = close shooter gate
+ * Hold right bumper = bypass PIDF and command raw test power directly
  *
  * Recommended tuning order:
  * 1. Start with kP = kI = kD = 0 and tune kF until actual velocity is close to target.
@@ -58,8 +61,11 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
         RobotHardware robot = new RobotHardware();
         robot.initShooterHardware(hardwareMap);
+        robot.initGateHardware(hardwareMap);
 
         ShooterSubsystem shooter = new ShooterSubsystem(robot);
+        GateSubsystem gate = new GateSubsystem(robot);
+        gate.close();
 
         telemetry = new MultipleTelemetry(
                 telemetry,
@@ -67,6 +73,8 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
         boolean previousA = false;
         boolean previousB = false;
+        boolean previousX = false;
+        boolean previousY = false;
         boolean previousRawTest = false;
         double filteredRawKfEstimate = Double.NaN;
         double filteredMaxVelocityAtNominalVoltage = Double.NaN;
@@ -75,7 +83,9 @@ public final class ShooterDashboardTest extends LinearOpMode {
         telemetry.addLine("Open FTC Dashboard -> Config -> ShooterDashboardTest");
         telemetry.addLine("A = Start closed-loop shooter");
         telemetry.addLine("B = Stop shooter");
-        telemetry.addLine("Hold X = Raw power bypass (no PIDF/voltage compensation)");
+        telemetry.addLine("X = Open gate");
+        telemetry.addLine("Y = Close gate");
+        telemetry.addLine("Hold right bumper = Raw power bypass");
         telemetry.addData("Shooter connection", robot.shooter.getConnectionInfo());
         telemetry.addData("Configured motor type", robot.shooter.getMotorType().getName());
         telemetry.update();
@@ -84,6 +94,7 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
         if (isStopRequested()) {
             shooter.stop();
+            gate.close();
             return;
         }
 
@@ -118,7 +129,17 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
             boolean aNow = gamepad1.a;
             boolean bNow = gamepad1.b;
-            boolean rawTestNow = gamepad1.x;
+            boolean xNow = gamepad1.x;
+            boolean yNow = gamepad1.y;
+            boolean rawTestNow = gamepad1.right_bumper;
+
+            if (xNow && !previousX) {
+                gate.open();
+            }
+
+            if (yNow && !previousY) {
+                gate.close();
+            }
 
             if (rawTestNow) {
                 // This is deliberately identical in principle to IntakeMotorTest:
@@ -150,6 +171,8 @@ public final class ShooterDashboardTest extends LinearOpMode {
 
             previousA = aNow;
             previousB = bNow;
+            previousX = xNow;
+            previousY = yNow;
             previousRawTest = rawTestNow;
 
             if (rawTestNow) {
@@ -189,6 +212,15 @@ public final class ShooterDashboardTest extends LinearOpMode {
                             : shooter.isEnabled() ? "CLOSED LOOP" : "STOPPED");
             telemetry.addData("Enabled", shooter.isEnabled());
             telemetry.addData("Ready To Shoot", shooter.isReadyToShoot());
+            telemetry.addData("Gate State", gate.isOpen() ? "OPEN" : "CLOSED");
+            telemetry.addData(
+                    "Left Gate Position",
+                    "%.3f",
+                    gate.getLeftPosition());
+            telemetry.addData(
+                    "Right Gate Position",
+                    "%.3f",
+                    gate.getRightPosition());
 
             telemetry.addData(
                     "Target Velocity (ticks/sec)",
@@ -266,5 +298,6 @@ public final class ShooterDashboardTest extends LinearOpMode {
         }
 
         shooter.stop();
+        gate.close();
     }
 }

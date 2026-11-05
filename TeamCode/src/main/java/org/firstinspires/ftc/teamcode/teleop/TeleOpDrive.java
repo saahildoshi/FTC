@@ -10,13 +10,14 @@ import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.Servo;
 
+import org.firstinspires.ftc.teamcode.config.ShooterConstants;
 import org.firstinspires.ftc.teamcode.hardware.RobotHardware;
-import org.firstinspires.ftc.teamcode.subsystems.ClawSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.DriveSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.FlowerDescorerSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.GateSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
-import org.firstinspires.ftc.teamcode.subsystems.LiftSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
 
 /**
  * COMPETITION TELEOP
@@ -30,20 +31,18 @@ import org.firstinspires.ftc.teamcode.subsystems.LiftSubsystem;
  * - OPTIONS/START: reset heading
  *
  * GAMEPAD 2 = SUBSYSTEMS ONLY
- * - Right trigger: intake forward
- * - Left trigger: intake reverse
- * - D-pad Up: manually raise lift
- * - D-pad Down: manually lower lift
- * - Y: automatically move lift to HIGH, then open claw
- * - Left bumper: close claw
- * - Right bumper: open claw
- * - A: move 270 servo to 0.60 for 1 second, then return to 0.15
+ * - Right trigger: toggle intake forward
+ * - Left trigger: toggle intake reverse
+ * - A: start the PIDF shooter and automatic gate
+ * - B: stop the shooter and close the gate
+ * - Y: raise/stow the flower descorer
+ * - X: lower/deploy the flower descorer
  *
- * The automatic lift sequence and 270 servo sequence are non-blocking so the
- * drivetrain and other subsystem controls continue updating while they run.
+ * The gate opens automatically at the ShooterConstants upper velocity threshold
+ * and closes below its lower threshold, matching ShooterGateAutomaticTest.
  */
 @Config
-@TeleOp(name = "Mecanum Drive (Road Runner 1.0)", group = "TeleOp")
+@TeleOp(name = "Mecanum Drive (Road Runner 2.0)", group = "TeleOp")
 public final class TeleOpDrive extends LinearOpMode {
 
     private static final Pose2d INITIAL_POSE = new Pose2d(
@@ -52,12 +51,6 @@ public final class TeleOpDrive extends LinearOpMode {
 
     // Dashboard-adjustable intake power, matching IntakeMotorTest behavior.
     public static double INTAKE_TEST_POWER = 1.0;
-
-    // Calibrated FTC Servo commands. Servo.setPosition() uses a normalized
-    // [0, 1] command rather than a physical angle in degrees.
-    public static double SERVO_270_ZERO_POSITION = 0.15;
-    public static double SERVO_270_OPEN_POSITION = 0.60;
-    public static double SERVO_270_HOLD_SECONDS = 1.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -69,16 +62,19 @@ public final class TeleOpDrive extends LinearOpMode {
         DriveSubsystem drive = new DriveSubsystem(hardwareMap, INITIAL_POSE);
 
         RobotHardware robot = new RobotHardware();
-        robot.initVerifiedHardware(hardwareMap);
+        robot.initIntakeHardware(hardwareMap);
+        robot.initShooterHardware(hardwareMap);
+        robot.initGateHardware(hardwareMap);
+        robot.initFlowerDescorerHardware(hardwareMap);
 
         IntakeSubsystem intake = new IntakeSubsystem(robot);
-        LiftSubsystem lift = new LiftSubsystem(robot);
-        ClawSubsystem claw = new ClawSubsystem(robot);
-        Servo servo270 = robot.servo270;
+        ShooterSubsystem shooter = new ShooterSubsystem(robot);
+        GateSubsystem gate = new GateSubsystem(robot);
+        FlowerDescorerSubsystem flowerDescorer =
+                new FlowerDescorerSubsystem(robot);
 
-        servo270.setDirection(Servo.Direction.REVERSE);
-        servo270.setPosition(SERVO_270_ZERO_POSITION);
-        claw.close();
+        gate.close();
+        flowerDescorer.zero();
 
         telemetry = new MultipleTelemetry(
                 telemetry,
@@ -125,13 +121,13 @@ public final class TeleOpDrive extends LinearOpMode {
         // GAMEPAD 2 - SUBSYSTEM STATE
         // =========================================================
 
-        boolean previousServoA = false;
-        boolean servo270CycleActive = false;
-        long servo270OpenedTimeNs = 0L;
-
-        boolean previousHighY = false;
-        boolean autoHighActive = false;
-        boolean autoHighClawOpened = false;
+        boolean previousShooterStart = false;
+        boolean previousShooterStop = false;
+        boolean previousFlowerUp = false;
+        boolean previousFlowerDown = false;
+        boolean previousIntakeForward = false;
+        boolean previousIntakeReverse = false;
+        int intakeDirection = 0;
 
         // ---------------- Loop Timing ----------------
 
@@ -141,20 +137,20 @@ public final class TeleOpDrive extends LinearOpMode {
         telemetry.addLine("TeleOp initialized");
         telemetry.addLine("GAMEPAD 1: drive only");
         telemetry.addLine("GAMEPAD 2: mechanisms only");
-        telemetry.addLine("GP2 RT/LT: intake forward/reverse");
-        telemetry.addLine("GP2 D-pad Up/Down: lift raise/lower");
-        telemetry.addLine("GP2 Y: lift HIGH -> open claw");
-        telemetry.addLine("GP2 LB/RB: claw close/open");
-        telemetry.addLine("GP2 A: 270 servo 0.60 -> 1 sec -> 0.15");
+        telemetry.addLine("GP2 RT/LT: toggle intake forward/reverse");
+        telemetry.addLine("GP2 A/B: start/stop PIDF shooter");
+        telemetry.addLine("GP2 Y/X: flower descorer raise/lower");
+        telemetry.addLine("Shooter gate is automatic");
         telemetry.update();
 
         waitForStart();
 
         if (isStopRequested()) {
             intake.stop();
-            lift.stop();
+            shooter.stop();
+            gate.close();
+            flowerDescorer.zero();
             drive.stop();
-            servo270.setPosition(SERVO_270_ZERO_POSITION);
             return;
         }
 
@@ -260,108 +256,95 @@ public final class TeleOpDrive extends LinearOpMode {
             previousX = xPressed;
 
             // =========================================================
-            // GAMEPAD 2 - INTAKE TEST CONTROL
+            // GAMEPAD 2 - INTAKE TOGGLE CONTROL
             // =========================================================
 
-            double intakePower = 0.0;
+            boolean intakeForwardNow = gamepad2.right_trigger > 0.10;
+            boolean intakeReverseNow = gamepad2.left_trigger > 0.10;
+            boolean intakeForwardPressed =
+                    intakeForwardNow && !previousIntakeForward;
+            boolean intakeReversePressed =
+                    intakeReverseNow && !previousIntakeReverse;
 
-            if (gamepad2.right_trigger > 0.10) {
-                intakePower = Math.abs(INTAKE_TEST_POWER);
-            } else if (gamepad2.left_trigger > 0.10) {
-                intakePower = -Math.abs(INTAKE_TEST_POWER);
+            if (intakeForwardPressed && intakeReversePressed) {
+                intakeDirection = 0;
+            } else if (intakeForwardPressed) {
+                intakeDirection = intakeDirection == 1 ? 0 : 1;
+            } else if (intakeReversePressed) {
+                intakeDirection = intakeDirection == -1 ? 0 : -1;
             }
 
-            intake.setPower(intakePower);
+            previousIntakeForward = intakeForwardNow;
+            previousIntakeReverse = intakeReverseNow;
+
+            intake.setPower(intakeDirection * Math.abs(INTAKE_TEST_POWER));
 
             // =========================================================
-            // GAMEPAD 2 - AUTOMATIC HIGH LIFT SEQUENCE
-            // Y = close claw -> move to HIGH -> open claw at target.
-            // D-pad lift input cancels automatic control immediately.
+            // GAMEPAD 2 - PIDF SHOOTER / AUTOMATIC GATE
             // =========================================================
 
-            boolean highYNow = gamepad2.y;
-            boolean highYPressed = highYNow && !previousHighY;
+            boolean shooterStartNow = gamepad2.a;
+            boolean shooterStopNow = gamepad2.b;
 
-            boolean raiseLift = gamepad2.dpad_up;
-            boolean lowerLift = gamepad2.dpad_down;
-
-            if (highYPressed && lift.isHomed()) {
-                claw.close();
-                lift.moveHigh();
-                autoHighActive = true;
-                autoHighClawOpened = false;
+            if (shooterStartNow && !previousShooterStart) {
+                shooter.setTargetVelocity(
+                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
             }
 
-            if ((raiseLift || lowerLift) && autoHighActive) {
-                autoHighActive = false;
-                autoHighClawOpened = false;
+            if (shooterStopNow && !previousShooterStop) {
+                shooter.stop();
+                gate.close();
             }
 
-            if (autoHighActive) {
-                // PID control must update every loop while moving to/holding HIGH.
-                lift.update();
+            previousShooterStart = shooterStartNow;
+            previousShooterStop = shooterStopNow;
 
-                if (lift.atTarget() && !autoHighClawOpened) {
-                    claw.open();
-                    autoHighClawOpened = true;
+            // Reapply the live Dashboard target without resetting PIDF unless
+            // the configured target actually changes.
+            if (shooter.isEnabled()) {
+                shooter.setTargetVelocity(
+                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
+            }
+
+            shooter.update();
+
+            double shooterVelocity = shooter.getCurrentVelocity();
+            double gateOpenVelocity = Math.max(
+                    0.0,
+                    ShooterConstants.GATE_OPEN_VELOCITY_TICKS_PER_SECOND);
+            double gateCloseVelocity = Math.min(
+                    gateOpenVelocity,
+                    Math.max(
+                            0.0,
+                            ShooterConstants.GATE_CLOSE_VELOCITY_TICKS_PER_SECOND));
+
+            if (!shooter.isEnabled()) {
+                gate.close();
+            } else if (gate.isOpen()) {
+                if (shooterVelocity < gateCloseVelocity) {
+                    gate.close();
                 }
-            } else {
-                // Raw manual lift behavior from LiftTestTeleop.
-                if (raiseLift && !lowerLift) {
-                    lift.raise();
-                } else if (lowerLift && !raiseLift) {
-                    lift.lower();
-                } else {
-                    lift.stop();
-                }
-            }
-
-            previousHighY = highYNow;
-
-            // =========================================================
-            // GAMEPAD 2 - CLAW CONTROL
-            // While the automatic lift is still traveling, keep the claw closed.
-            // After it opens at HIGH, the bumpers can override it normally.
-            // =========================================================
-
-            if (autoHighActive && !autoHighClawOpened) {
-                claw.close();
-            } else if (gamepad2.left_bumper) {
-                claw.close();
-            } else if (gamepad2.right_bumper) {
-                claw.open();
+            } else if (shooterVelocity >= gateOpenVelocity) {
+                gate.open();
             }
 
             // =========================================================
-            // GAMEPAD 2 - 270 SERVO TEST CONTROL
-            // Non-blocking version of Servo270Test.
+            // GAMEPAD 2 - FLOWER DESCORER
             // =========================================================
 
-            boolean servoANow = gamepad2.a;
-            boolean servoAPressed = servoANow && !previousServoA;
+            boolean flowerUpNow = gamepad2.y;
+            boolean flowerDownNow = gamepad2.x;
 
-            if (servoAPressed && !servo270CycleActive) {
-                servo270OpenedTimeNs = System.nanoTime();
-                servo270CycleActive = true;
+            if (flowerUpNow && !previousFlowerUp) {
+                flowerDescorer.zero();
             }
 
-            if (servo270CycleActive) {
-                double servoElapsedSeconds =
-                        (System.nanoTime() - servo270OpenedTimeNs) * 1e-9;
-
-                if (servoElapsedSeconds >= SERVO_270_HOLD_SECONDS) {
-                    servo270CycleActive = false;
-                }
+            if (flowerDownNow && !previousFlowerDown) {
+                flowerDescorer.lower();
             }
 
-            // Reassert the selected command every loop. This makes the zero
-            // position reliable and allows live Dashboard changes to take effect.
-            servo270.setPosition(
-                    servo270CycleActive
-                            ? SERVO_270_OPEN_POSITION
-                            : SERVO_270_ZERO_POSITION);
-
-            previousServoA = servoANow;
+            previousFlowerUp = flowerUpNow;
+            previousFlowerDown = flowerDownNow;
 
             // =========================================================
             // UPDATE DRIVE LOCALIZATION
@@ -515,43 +498,55 @@ public final class TeleOpDrive extends LinearOpMode {
             telemetry.addData("Rotation", "%.2f", currentRotation);
 
             telemetry.addLine("=== GAMEPAD 2 / SUBSYSTEMS ===");
+            telemetry.addData(
+                    "Intake State",
+                    intakeDirection > 0
+                            ? "FORWARD"
+                            : intakeDirection < 0 ? "REVERSE" : "OFF");
             telemetry.addData("Intake Power", "%.2f", intake.getPower());
             telemetry.addData("Intake Encoder", intake.getCurrentPosition());
             telemetry.addData("Intake Velocity", "%.1f", intake.getVelocity());
 
-            telemetry.addData("Lift Encoder", lift.getCurrentPosition());
-            telemetry.addData("Lift Target", lift.getTargetPosition());
-            telemetry.addData("Lift Error", lift.getError());
-            telemetry.addData("Lift Height (%)", "%.1f", lift.getHeightFraction() * 100.0);
-            telemetry.addData("Lift Homed", lift.isHomed());
-            telemetry.addData("Magnetic Home Switch", lift.isHomeLimitPressed());
-            telemetry.addData("Auto High", autoHighActive);
-            telemetry.addData("High Claw Opened", autoHighClawOpened);
-
-            if (highYPressed && !lift.isHomed()) {
-                telemetry.addLine("GP2 Y IGNORED: home/calibrate lift first");
-            }
-
-            if (lowerLift && lift.isHomeLimitPressed()) {
-                telemetry.addLine("LIFT LOWER BLOCKED: home switch is pressed");
-            }
-
-            telemetry.addData("Claw Position", "%.3f", claw.getPosition());
-            telemetry.addData("270 Servo Position", "%.3f", servo270.getPosition());
-            telemetry.addData("270 Servo Zero Setpoint", "%.3f", SERVO_270_ZERO_POSITION);
-            telemetry.addData("270 Servo Open Setpoint", "%.3f", SERVO_270_OPEN_POSITION);
+            telemetry.addData("Shooter Enabled", shooter.isEnabled());
             telemetry.addData(
-                    "270 Servo Cycle",
-                    servo270CycleActive ? "OPEN / HOLDING" : "ZERO / HOLDING");
+                    "Shooter Target",
+                    "%.1f ticks/sec",
+                    shooter.getTargetVelocity());
+            telemetry.addData(
+                    "Shooter Velocity",
+                    "%.1f ticks/sec",
+                    shooterVelocity);
+            telemetry.addData(
+                    "Shooter Error",
+                    "%.1f ticks/sec",
+                    shooter.getVelocityError());
+            telemetry.addData("Shooter Ready", shooter.isReadyToShoot());
+            telemetry.addData("Shooter PID", "%.3f", shooter.getPidOutput());
+            telemetry.addData("Shooter Feedforward", "%.3f", shooter.getFeedforwardOutput());
+            telemetry.addData("Shooter Power", "%.3f", shooter.getMotorPower());
+            telemetry.addData("Gate State", gate.isOpen() ? "OPEN" : "CLOSED");
+            telemetry.addData(
+                    "Gate Thresholds",
+                    "open %.0f / close %.0f ticks/sec",
+                    gateOpenVelocity,
+                    gateCloseVelocity);
+            telemetry.addData(
+                    "Flower Descorer",
+                    flowerDescorer.isLowered() ? "LOWERED" : "RAISED");
+            telemetry.addData(
+                    "Flower Positions",
+                    "left %.3f / right %.3f",
+                    flowerDescorer.getLeftPosition(),
+                    flowerDescorer.getRightPosition());
 
             telemetry.addData("Loop rate (Hz)", "%.1f", filteredLoopHz);
             telemetry.update();
         }
 
         intake.stop();
-        lift.stop();
-        claw.close();
-        servo270.setPosition(SERVO_270_ZERO_POSITION);
+        shooter.stop();
+        gate.close();
+        flowerDescorer.zero();
         drive.stop();
     }
 }
