@@ -7,6 +7,53 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+// Each Auto owns its path. Copy only its marked hardware-free path methods into
+// a desktop class, so MeepMeep stays synchronized without depending on Android.
+def competitionAutos = ['RedHiveSideAuto', 'BlueHiveSideAuto',
+                        'RedDownSideAuto', 'BlueDownSideAuto']
+def autoDirectory = file('../TeamCode/src/main/java/org/firstinspires/ftc/teamcode/autonomous')
+def previewSources = layout.buildDirectory.dir('generated/sources/competitionPaths/java')
+
+tasks.register('generateCompetitionPaths') {
+    inputs.files(competitionAutos.collect { new File(autoDirectory, "${it}.java") })
+    outputs.dir(previewSources)
+    doLast {
+        def outputPackage = new File(previewSources.get().asFile,
+                'com/example/meepmeeptesting/generated')
+        outputPackage.mkdirs()
+        competitionAutos.each { autoName ->
+            def autoSource = new File(autoDirectory, "${autoName}.java").getText('UTF-8')
+            def beginMarker = '// MEEPMEEP PATH BEGIN'
+            def endMarker = '// MEEPMEEP PATH END'
+            def begin = autoSource.indexOf(beginMarker)
+            def end = autoSource.indexOf(endMarker)
+            if (begin < 0 || end < begin) {
+                throw new GradleException("${autoName}: keep the MEEPMEEP PATH markers around its path methods")
+            }
+            def pathMethods = autoSource.substring(begin + beginMarker.length(), end)
+            new File(outputPackage, "${autoName}Path.java").setText("""
+// Generated from ${autoName}.java. Edit the Auto file, not this build output.
+package com.example.meepmeeptesting.generated;
+import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.ProfileAccelConstraint;
+import com.acmerobotics.roadrunner.SequentialAction;
+import com.acmerobotics.roadrunner.SleepAction;
+import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
+import com.acmerobotics.roadrunner.TranslationalVelConstraint;
+import com.acmerobotics.roadrunner.Vector2d;
+import java.util.function.Function;
+public final class ${autoName}Path {
+${pathMethods}
+}
+""", 'UTF-8')
+        }
+    }
+}
+
+sourceSets.main.java.srcDir(previewSources)
+tasks.named('compileJava') { dependsOn 'generateCompetitionPaths' }
+
 repositories {
     mavenCentral()
     maven { url = 'https://maven.brott.dev/' }

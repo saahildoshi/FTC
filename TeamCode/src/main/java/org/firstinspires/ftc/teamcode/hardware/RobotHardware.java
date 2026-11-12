@@ -39,6 +39,8 @@ public final class RobotHardware {
     public Servo rightGate;
     public Servo flowerLeft;
     public Servo flowerRight;
+    public Servo leftShield;
+    public Servo rightShield;
 
     public void initVerifiedHardware(HardwareMap hardwareMap) {
         leftFront = hardwareMap.get(
@@ -147,6 +149,16 @@ public final class RobotHardware {
         flowerRight = hardwareMap.get(
                 Servo.class,
                 RobotConstants.HardwareNames.FLOWER_RIGHT);
+    }
+
+    /** Shield-only initialization for isolated calibration and mechanism control. */
+    public void initShieldHardware(HardwareMap hardwareMap) {
+        leftShield = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.LEFT_SHIELD);
+        rightShield = hardwareMap.get(
+                Servo.class,
+                RobotConstants.HardwareNames.RIGHT_SHIELD);
     }
 
     public void stopDriveMotors() {

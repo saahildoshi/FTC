@@ -155,16 +155,27 @@ public final class ShooterSubsystem {
         double maximumTargetVelocity = Math.min(
                 Math.abs(ShooterConstants.MAX_TARGET_VELOCITY_TICKS_PER_SECOND),
                 ShooterConstants.ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND);
-        double safeTarget = Range.clip(
+        setTargetVelocityInternal(Range.clip(
                 Math.abs(ticksPerSecond),
                 0.0,
-                maximumTargetVelocity);
+                maximumTargetVelocity));
+    }
 
-        if (!enabled || Math.abs(safeTarget - targetVelocity) > 0.001) {
+    /**
+     * Set an uncapped target for velocity-response testing. Normal robot code
+     * should use {@link #setTargetVelocity(double)} so its configured safety
+     * limit remains enforced.
+     */
+    public void setUnboundedTargetVelocityForTesting(double ticksPerSecond) {
+        setTargetVelocityInternal(Math.abs(ticksPerSecond));
+    }
+
+    private void setTargetVelocityInternal(double newTargetVelocity) {
+        if (!enabled || Math.abs(newTargetVelocity - targetVelocity) > 0.001) {
             pidf.reset();
         }
 
-        targetVelocity = safeTarget;
+        targetVelocity = newTargetVelocity;
         pidf.setTarget(targetVelocity);
         enabled = targetVelocity > 0.0;
     }

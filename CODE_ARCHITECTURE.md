@@ -63,6 +63,35 @@ The existing `TeleOpDrive.java` remains the reference/competition driver code be
 
 Autonomous OpModes should be high-level recipes. They should create subsystems and then combine Road Runner drive trajectories with mechanism Actions.
 
+The four competition OpModes (`RedHiveSideAuto.java`, `BlueHiveSideAuto.java`,
+`RedDownSideAuto.java`, and `BlueDownSideAuto.java`) each extend `LinearOpMode`
+directly. Each file owns its start pose, inline coordinate targets, trajectory
+builders, timing constants, hardware initialization, and mechanism sequence.
+Edit that Auto's `buildDriveStages()` method to change its path independently.
+The comments numbered 0, 1, etc. identify each leg used by `runOpMode()`.
+
+Keep the `MEEPMEEP PATH BEGIN` / `MEEPMEEP PATH END` comments around the
+hardware-free path section. MeepMeep's `generateCompetitionPaths` build task
+copies that section verbatim into a desktop class under its build directory.
+This keeps the preview synchronized with the individual Auto without a shared
+autonomous base class or a second manually maintained copy of its coordinates.
+`previewStages()` only substitutes pauses for mechanism operations; the robot
+runs the real shooting, intake, descorer, and endpoint-check actions.
+
+Trajectory functions in this Road Runner 1.0.1 project:
+
+- `strafeToConstantHeading(new Vector2d(x, y))`: straight move to field coordinates, holding heading.
+- `splineToConstantHeading(new Vector2d(x, y), tangent)`: curved move to field coordinates, holding heading.
+- `splineToSplineHeading(new Pose2d(x, y, heading), tangent)`: curved move with a smooth change to the final heading.
+- `setTangent(angle)`: direction of the path, independent of the robot's heading.
+
+Positions are inches from field center `(0, 0)`; angles are radians. An
+`actionBuilder(beginPose)` begins a path at that field pose and does not change
+the coordinate origin. Every new leg begins at the previous leg's endpoint.
+The [Learn Road Runner function guide](https://learnroadrunner.com/trajectorybuilder-functions.html)
+uses older API names; `strafeToConstantHeading` is the 1.0 straight-coordinate
+move used here in place of its `lineToConstantHeading` examples.
+
 `ModularAutoExample.java` is intentionally inactive until the team knows the 2026-27 starting pose, field geometry, and mechanisms.
 
 ## 8. `testing/` and `tests/` — prove one thing at a time

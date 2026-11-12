@@ -31,9 +31,9 @@ public final class ShooterConstants {
     // TARGET VELOCITY
     // ----------------------------------------------------------------------
     public static final double ABSOLUTE_MAX_TARGET_VELOCITY_TICKS_PER_SECOND =
-            1200;
-    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1200;
-    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 1200;
+            1335;
+    public static double TARGET_VELOCITY_TICKS_PER_SECOND = 1235;
+    public static double MAX_TARGET_VELOCITY_TICKS_PER_SECOND = 1335;
 
     // Shooter is considered ready when actual speed is this close to target.
     public static double VELOCITY_TOLERANCE_TICKS_PER_SECOND = 50.0;

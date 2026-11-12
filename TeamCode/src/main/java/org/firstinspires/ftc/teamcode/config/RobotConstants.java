@@ -21,6 +21,8 @@ public final class RobotConstants {
         public static final String RIGHT_GATE = "rightGate";
         public static final String FLOWER_LEFT = "flowerLeft";
         public static final String FLOWER_RIGHT = "flowerRight";
+        public static final String LEFT_SHIELD = "leftShield";
+        public static final String RIGHT_SHIELD = "rightShield";
 
         private HardwareNames() { }
     }

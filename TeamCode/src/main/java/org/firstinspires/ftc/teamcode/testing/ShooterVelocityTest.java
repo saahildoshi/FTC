@@ -74,10 +74,8 @@ public final class ShooterVelocityTest extends LinearOpMode {
 
             if (dpadUp && !previousDpadUp) {
                 ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND =
-                        Math.min(
-                                ShooterConstants.MAX_TARGET_VELOCITY_TICKS_PER_SECOND,
-                                ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND
-                                        + VELOCITY_STEP);
+                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND
+                                + VELOCITY_STEP;
             }
 
             if (dpadDown && !previousDpadDown) {
@@ -92,7 +90,8 @@ public final class ShooterVelocityTest extends LinearOpMode {
             previousDpadDown = dpadDown;
 
             if (aNow && !previousA) {
-                shooter.start();
+                shooter.setUnboundedTargetVelocityForTesting(
+                        ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
             }
 
             if (bNow && !previousB) {
@@ -104,7 +103,7 @@ public final class ShooterVelocityTest extends LinearOpMode {
 
             // If Dashboard or D-pad changes the target while running, apply it live.
             if (shooter.isEnabled()) {
-                shooter.setTargetVelocity(
+                shooter.setUnboundedTargetVelocityForTesting(
                         ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
             }
 

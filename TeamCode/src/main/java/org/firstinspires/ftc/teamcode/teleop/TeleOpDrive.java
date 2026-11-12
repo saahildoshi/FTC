@@ -18,6 +18,7 @@ import org.firstinspires.ftc.teamcode.subsystems.FlowerDescorerSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.GateSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeSubsystem;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
+import org.firstinspires.ftc.teamcode.subsystems.ShieldSubsystem;
 
 /**
  * COMPETITION TELEOP
@@ -33,13 +34,14 @@ import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem;
  * GAMEPAD 2 = SUBSYSTEMS ONLY
  * - Right trigger: toggle intake forward
  * - Left trigger: toggle intake reverse
- * - A: start the PIDF shooter and automatic gate
+ * - A: start the PIDF shooter; press again to manually open the gate
  * - B: stop the shooter and close the gate
  * - Y: raise/stow the flower descorer
  * - X: lower/deploy the flower descorer
+ * - D-pad up/down: raise/lower the shield
  *
- * The gate opens automatically at the ShooterConstants upper velocity threshold
- * and closes below its lower threshold, matching ShooterGateAutomaticTest.
+ * The manual gate command is accepted only while shooter velocity is between
+ * 1000 and 1300 encoder ticks/second, inclusive.
  */
 @Config
 @TeleOp(name = "Mecanum Drive (Road Runner 2.0)", group = "TeleOp")
@@ -51,6 +53,9 @@ public final class TeleOpDrive extends LinearOpMode {
 
     // Dashboard-adjustable intake power, matching IntakeMotorTest behavior.
     public static double INTAKE_TEST_POWER = 1.0;
+
+    private static final double MANUAL_GATE_MIN_VELOCITY = 1000.0;
+    private static final double MANUAL_GATE_MAX_VELOCITY = 1300.0;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -66,6 +71,7 @@ public final class TeleOpDrive extends LinearOpMode {
         robot.initShooterHardware(hardwareMap);
         robot.initGateHardware(hardwareMap);
         robot.initFlowerDescorerHardware(hardwareMap);
+        robot.initShieldHardware(hardwareMap);
 
         IntakeSubsystem intake = new IntakeSubsystem(robot);
         ShooterSubsystem shooter = new ShooterSubsystem(robot);
@@ -75,6 +81,8 @@ public final class TeleOpDrive extends LinearOpMode {
 
         gate.close();
         flowerDescorer.zero();
+        ShieldSubsystem shield = new ShieldSubsystem(robot);
+        shield.zero();
 
         telemetry = new MultipleTelemetry(
                 telemetry,
@@ -125,6 +133,8 @@ public final class TeleOpDrive extends LinearOpMode {
         boolean previousShooterStop = false;
         boolean previousFlowerUp = false;
         boolean previousFlowerDown = false;
+        boolean previousShieldUp = false;
+        boolean previousShieldDown = false;
         boolean previousIntakeForward = false;
         boolean previousIntakeReverse = false;
         int intakeDirection = 0;
@@ -138,9 +148,11 @@ public final class TeleOpDrive extends LinearOpMode {
         telemetry.addLine("GAMEPAD 1: drive only");
         telemetry.addLine("GAMEPAD 2: mechanisms only");
         telemetry.addLine("GP2 RT/LT: toggle intake forward/reverse");
-        telemetry.addLine("GP2 A/B: start/stop PIDF shooter");
+        telemetry.addLine("GP2 A: start shooter / press again to open gate");
+        telemetry.addLine("GP2 B: stop shooter / close gate");
         telemetry.addLine("GP2 Y/X: flower descorer raise/lower");
-        telemetry.addLine("Shooter gate is automatic");
+        telemetry.addLine("GP2 D-pad up/down: shield raise/lower");
+        telemetry.addLine("Gate opens only from 1000-1300 ticks/sec");
         telemetry.update();
 
         waitForStart();
@@ -151,6 +163,7 @@ public final class TeleOpDrive extends LinearOpMode {
             gate.close();
             flowerDescorer.zero();
             drive.stop();
+            shield.zero();
             return;
         }
 
@@ -280,15 +293,20 @@ public final class TeleOpDrive extends LinearOpMode {
             intake.setPower(intakeDirection * Math.abs(INTAKE_TEST_POWER));
 
             // =========================================================
-            // GAMEPAD 2 - PIDF SHOOTER / AUTOMATIC GATE
+            // GAMEPAD 2 - PIDF SHOOTER / MANUAL GATE
             // =========================================================
 
             boolean shooterStartNow = gamepad2.a;
             boolean shooterStopNow = gamepad2.b;
+            boolean shooterStartPressed =
+                    shooterStartNow && !previousShooterStart;
+            boolean manualGateOpenRequested =
+                    shooterStartPressed && shooter.isEnabled();
 
-            if (shooterStartNow && !previousShooterStart) {
+            if (shooterStartPressed && !shooter.isEnabled()) {
                 shooter.setTargetVelocity(
                         ShooterConstants.TARGET_VELOCITY_TICKS_PER_SECOND);
+                gate.close();
             }
 
             if (shooterStopNow && !previousShooterStop) {
@@ -309,22 +327,13 @@ public final class TeleOpDrive extends LinearOpMode {
             shooter.update();
 
             double shooterVelocity = shooter.getCurrentVelocity();
-            double gateOpenVelocity = Math.max(
-                    0.0,
-                    ShooterConstants.GATE_OPEN_VELOCITY_TICKS_PER_SECOND);
-            double gateCloseVelocity = Math.min(
-                    gateOpenVelocity,
-                    Math.max(
-                            0.0,
-                            ShooterConstants.GATE_CLOSE_VELOCITY_TICKS_PER_SECOND));
+            boolean shooterInManualGateRange =
+                    shooterVelocity >= MANUAL_GATE_MIN_VELOCITY
+                            && shooterVelocity <= MANUAL_GATE_MAX_VELOCITY;
 
-            if (!shooter.isEnabled()) {
+            if (!shooter.isEnabled() || !shooterInManualGateRange) {
                 gate.close();
-            } else if (gate.isOpen()) {
-                if (shooterVelocity < gateCloseVelocity) {
-                    gate.close();
-                }
-            } else if (shooterVelocity >= gateOpenVelocity) {
+            } else if (manualGateOpenRequested) {
                 gate.open();
             }
 
@@ -345,6 +354,20 @@ public final class TeleOpDrive extends LinearOpMode {
 
             previousFlowerUp = flowerUpNow;
             previousFlowerDown = flowerDownNow;
+
+            // GAMEPAD 2 - SHIELD
+            boolean shieldUpNow = gamepad2.dpad_up;
+            boolean shieldDownNow = gamepad2.dpad_down;
+
+            if (shieldUpNow && !previousShieldUp) {
+                shield.zero();
+            }
+            if (shieldDownNow && !previousShieldDown) {
+                shield.lower();
+            }
+
+            previousShieldUp = shieldUpNow;
+            previousShieldDown = shieldDownNow;
 
             // =========================================================
             // UPDATE DRIVE LOCALIZATION
@@ -526,10 +549,11 @@ public final class TeleOpDrive extends LinearOpMode {
             telemetry.addData("Shooter Power", "%.3f", shooter.getMotorPower());
             telemetry.addData("Gate State", gate.isOpen() ? "OPEN" : "CLOSED");
             telemetry.addData(
-                    "Gate Thresholds",
-                    "open %.0f / close %.0f ticks/sec",
-                    gateOpenVelocity,
-                    gateCloseVelocity);
+                    "Manual Gate Range",
+                    "%.0f-%.0f ticks/sec",
+                    MANUAL_GATE_MIN_VELOCITY,
+                    MANUAL_GATE_MAX_VELOCITY);
+            telemetry.addData("Gate Speed Valid", shooterInManualGateRange);
             telemetry.addData(
                     "Flower Descorer",
                     flowerDescorer.isLowered() ? "LOWERED" : "RAISED");
@@ -540,6 +564,12 @@ public final class TeleOpDrive extends LinearOpMode {
                     flowerDescorer.getRightPosition());
 
             telemetry.addData("Loop rate (Hz)", "%.1f", filteredLoopHz);
+            telemetry.addData("Shield", shield.isLowered() ? "LOWERED" : "RAISED");
+            telemetry.addData(
+                    "Shield Positions",
+                    "left %.3f / right %.3f",
+                    shield.getLeftPosition(),
+                    shield.getRightPosition());
             telemetry.update();
         }
 
@@ -547,6 +577,7 @@ public final class TeleOpDrive extends LinearOpMode {
         shooter.stop();
         gate.close();
         flowerDescorer.zero();
+        shield.zero();
         drive.stop();
     }
 }
